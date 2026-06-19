@@ -114,9 +114,10 @@ AI 에이전트를 모니터링하거나 복잡한 메타데이터 결합 대신
 ## 🛠️ 개발 팁: 안드로이드 스튜디오(Android Studio) 타겟 개발 상세
 안드로이드 스튜디오는 기본적으로 JetBrains의 IntelliJ Community Platform을 기반으로 작동하므로 완벽하게 호환됩니다.
 
-*   **컴파일 SDK 매핑**: 안드로이드 스튜디오 버전과 매칭되는 IntelliJ Platform 버전을 `build.gradle.kts`에 작성합니다.
-    *   예: **Android Studio Ladybug (2024.2.1)** 은 IntelliJ `2024.2` 기반이므로 `version.set("2024.2")` 로 작성합니다.
-    *   예: **Android Studio Koala (2024.1.1)** 는 IntelliJ `2024.1` 기반이므로 `version.set("2024.1")` 로 작성합니다.
+*   **컴파일 SDK 권장 세팅 (`2023.3`)**:
+    *   현재 구형 `org.jetbrains.intellij` 플러그인 빌드 시스템에서 최신 플랫폼(2024.1+)을 직접 세팅할 경우 빌트인 Git 종속성(`git4idea`)을 찾지 못하는 이슈가 빌드 과정에서 발생할 수 있습니다.
+    *   따라서 **전 버전 호환성(Retro-compatibility)** 및 안정적인 빌드를 보장하기 위해 기본 컴파일 타겟으로 **`2023.3`** 대에 해당하는 IntelliJ Platform SDK 버전을 사용합니다.
+    *   이 방식으로 빌드된 플러그인은 **구형 안드로이드 스튜디오(Hedgehog, Iguana, Jellyfish)**뿐만 아니라 **최신 안드로이드 스튜디오(Koala, Ladybug)**에서도 문제없이 완벽하게 상위 및 하위 호환됩니다.
 *   **로컬 디버그 환경**: 로컬에 설치된 Android Studio를 디렉토리로 지정하여 직접 애뮬레이션 실행 및 테스트하고 싶다면 `build.gradle.kts` 의 `intellij { ... }` 블록 내부에 다음 설정을 추가해주면 됩니다.
     ```kotlin
     intellij {

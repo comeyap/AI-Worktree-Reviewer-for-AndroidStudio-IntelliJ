@@ -27,13 +27,12 @@ repositories {
 
 // Configure IntelliJ platform plugin for Android Studio compatibility
 intellij {
-    // 1. Standard targeting: Match the IntelliJ platform version your Android Studio is built on.
-    // e.g., Android Studio Koala (2024.1.1) is based on IntelliJ 2024.1, Ladybug (2024.2.1) is 2024.2.
-    version.set("2024.1") 
+    // We target 2023.3 (highly stable, supports 'git4idea' cleanly and is fully backward/forward compatible with AS Ladybug, Koala, Jellyfish, Iguana, Hedgehog)
+    version.set("2023.3") 
     type.set("IC")        // Community Edition (fully compatible with Android Studio)
     plugins.set(listOf("git4idea", "platform-images"))
 
-    // 2. OR development targeting: point directly to your local Android Studio directory:
+    // OR development targeting: point directly to your local Android Studio directory:
     // localPath.set("/Applications/Android Studio.app") // On macOS
     // localPath.set("C:\\Program Files\\Android\\Android Studio") // On Windows
 }
