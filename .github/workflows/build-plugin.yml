@@ -24,14 +24,15 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 3. Cache Gradle home directory to speed up subsequent builds
+      # 3. Cache and setup specific Gradle 8.8 to avoid Gradle 9 incompatibility issues
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
         with:
+          gradle-version: '8.8'
           build-root-directory: plugin
 
       # 4. Build and verify the IntelliJ/Android Studio plugin
-      # Runs directly inside the plugin subdirectory using system-installed Gradle
+      # Runs directly inside the plugin subdirectory using the pinned Gradle 8.8
       - name: Build Plugin
         run: gradle buildPlugin
         working-directory: plugin
