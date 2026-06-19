@@ -145,3 +145,32 @@ AI 에이전트를 모니터링하거나 복잡한 메타데이터 결합 대신
    * 빌드가 즉시 완료된 후, 자동으로 **해당 Release의 첨부 파일(Release Assets) 항목**에 완벽히 호환되는 최신 플러그인 빌드 ZIP 파일이 업로드됩니다.
    * 사용자는 웹 브라우저로 Releases 페이지에 와서 `.zip` 파일만 다운받아 안드로이드 스튜디오에 'Install Plugin from Disk'로 넣기만 하면 됩니다.
 
+---
+
+### 📦 구체적인 GitHub Releases 배포 및 다운로드 순서 가이드
+
+GitHub에서 마우스 클릭 몇 번으로 빌드 파일까지 자동 생성해 배포하는 구체적인 가이드입니다:
+
+1. **GitHub 저장소 페이지로 이동**
+   * 본인의 웹 브라우저에서 생성한 GitHub Repository 페이지로 이동합니다.
+
+2. **Releases 작성 화면 이동**
+   * 우측 메인 화면 중간쯤에 있는 **Releases** 섹션을 찾고, **"Create a new release"** (또는 기존에 있다면 "Draft a new release") 버튼을 클릭합니다.
+
+3. **버전 태그 생성 및 정보 입력**
+   * **Choose a tag** 버튼을 클릭하고, 새로 발행할 버전 명(예: `v1.0.0`)을 입력한 뒤 **"+ Create new tag: v1.0.0 on publish"**를 누릅니다.
+   * **Release title**에 제목을 적습니다 (예: `AI Worktree Reviewer v1.0.0 출시`).
+   * **Write** 설명 본란에 이번 버전의 주요 수정 사항이나 사용 설정을 자유롭게 적어줍니다.
+
+4. **최종 배포 (Publish Release)**
+   * 페이지 가장 하단에 위치한 초록색 **"Publish release"** 버튼을 누릅니다.
+
+5. **자동 빌드 및 파일 첨부 완료 (약 1분~2분 소요)**
+   * 버튼을 누르고 나면 뒤에서 GitHub Actions의 `Build and Package Plugin` 워크플로우가 즉시 감지하여 깨끗한 클라우드 가상 환경에서 컴파일을 시작합니다.
+   * 빌드가 성공적으로 끝나면, 방금 만든 Releases 페이지로 **`.zip` 파일이 자동으로 빌드 및 자동 업로드** 되어 생성됩니다.
+
+6. **릴리즈 파일 다운로드 및 설치**
+   * 본인의 Releases 페이지를 새로고침하면 **Assets** 항목 하단에 **`AI-Worktree-Reviewer-1.0.0.zip`** 파일이 추가된 것을 보실 수 있습니다!
+   * 해당 zip 파일만 클릭하여 PC에 다운로드 받으신 후, 위 **안드로이드 스튜디오 설치 방법(Install Plugin from Disk...)**을 통해 곧바로 설치해 사용하시면 됩니다. 😊
+
+

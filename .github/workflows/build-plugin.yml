@@ -24,31 +24,30 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      # 3. Cache Gradle home directory and wrapper to speed up subsequent builds
+      # 3. Cache Gradle home directory to speed up subsequent builds
       - name: Setup Gradle Cache
         uses: gradle/actions/setup-gradle@v3
+        with:
+          build-root-directory: plugin
 
-      # 4. Grant execution permissions on gradlew wrapper
-      - name: Grant Execute Permission for Gradlew
-        run: chmod +x gradlew
-
-      # 5. Build and verify the IntelliJ/Android Studio plugin
-      # This generates the output in build/distributions/
+      # 4. Build and verify the IntelliJ/Android Studio plugin
+      # Runs directly inside the plugin subdirectory using system-installed Gradle
       - name: Build Plugin
-        run: ./gradlew buildPlugin
+        run: gradle buildPlugin
+        working-directory: plugin
 
-      # 6. Upload the compiled ZIP file in Github Actions Artifacts
+      # 5. Upload the compiled ZIP file in Github Actions Artifacts
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4
         with:
           name: AI-Worktree-Reviewer-Artifact
-          path: build/distributions/*.zip
+          path: plugin/build/distributions/*.zip
 
-      # 7. If this build was triggered by a GitHub Release, automatically upload the zip as a Release Asset
+      # 6. If this build was triggered by a GitHub Release, automatically upload the zip as a Release Asset
       - name: Upload Release Asset
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: build/distributions/*.zip
+          files: plugin/build/distributions/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,44 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<idea-plugin>
+    <id>com.github.developer.aiworktreereviewer</id>
+    <name>AI Worktree Reviewer</name>
+    <vendor email="support@example.com" url="https://github.com/developer/aiworktreereviewer">Git Worktree Reviewer Team</vendor>
+
+    <description><![CDATA[
+    <h3>AI Worktree Reviewer for Android Studio / IntelliJ</h3>
+    <p>A lightweight review companion plugin designed strictly for Git Worktree multi-session repositories.</p>
+    <ul>
+        <li>Quickly toggle active worktrees from a central dock</li>
+        <li>Review diff modifications with zero workspace context switches</li>
+        <li>Perform seamless reviews with sequential file traversal (Next/Previous hooks)</li>
+    </ul>
+    ]]></description>
+
+    <!-- Depends on platform and git plugins -->
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- 1. Active Worktrees Tool Window Registration -->
+        <toolWindow id="Active Worktrees"
+                    anchor="right"
+                    secondary="false"
+                    icon="AllIcons.Actions.ListFiles"
+                    factoryClass="com.example.worktree.ui.ActiveWorktreesToolWindowFactory" />
+
+        <!-- 2. Project service for process execution -->
+        <projectService serviceImplementation="com.example.worktree.service.WorktreeService" />
+    </extensions>
+
+    <actions>
+        <!-- Custom action to focus/toggle Active Worktrees panel -->
+        <action id="com.example.worktree.actions.ToggleWorktreesAction"
+                class="com.example.worktree.actions.ToggleWorktreesAction"
+                text="Toggle Active Worktrees"
+                description="Toggles the Git Worktrees sidebar panel">
+            <!-- Alt + Shift + W Shortcut -->
+            <keyboard-shortcut first-keystroke="alt shift W" keymap="$default"/>
+            <add-to-group group-id="Git.Menu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
