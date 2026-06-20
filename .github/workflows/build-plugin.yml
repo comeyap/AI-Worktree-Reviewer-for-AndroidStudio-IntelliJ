@@ -34,7 +34,7 @@ jobs:
       # 4. Build and verify the IntelliJ/Android Studio plugin
       # Runs directly inside the plugin subdirectory using the pinned Gradle 8.8
       - name: Build Plugin
-        run: gradle buildPlugin --info --stacktrace
+        run: gradle buildPlugin
         working-directory: plugin
 
       # 5. Upload the compiled ZIP file in Github Actions Artifacts

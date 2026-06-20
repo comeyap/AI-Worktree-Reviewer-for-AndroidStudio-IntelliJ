@@ -17,48 +17,31 @@ repositories {
 dependencies {
     intellijPlatform {
         intellijIdeaCommunity("2024.1")
-        bundledPlugin("com.intellij.git")
+        bundledPlugin("Git4Idea")
         bundledPlugin("platform-images")
-    }
-}
-
-sourceSets {
-    main {
-        java.srcDirs("src/main/java")
-        kotlin.srcDirs("src/main/kotlin")
-        resources.srcDirs("src/main/resources")
     }
 }
 
 intellijPlatform {
     pluginConfiguration {
-        id = "com.github.developer.aiworktreereviewer"
-        name = "AI Worktree Reviewer"
-        version = project.version.toString()
+        id.set("com.github.developer.aiworktreereviewer")
+        name.set("AI Worktree Reviewer")
+        version.set("1.0.0")
         
         ideaVersion {
-            sinceBuild = "241"
-            untilBuild = "242"
-        }
-        
-        description = "AI-powered worktree reviewer for Android Studio"
-        changeNotes = "Initial release"
-        
-        vendor {
-            name = "Developer"
-            email = "developer@github.com"
-            url = "https://github.com"
+            sinceBuild.set("241")
+            untilBuild.set("242.*")
         }
     }
     
     signing {
-        certificateChain = System.getenv("CERTIFICATE_CHAIN") ?: ""
-        privateKey = System.getenv("PRIVATE_KEY") ?: ""
-        password = System.getenv("PRIVATE_KEY_PASSWORD") ?: ""
+        certificateChain.set(System.getenv("CERTIFICATE_CHAIN"))
+        privateKey.set(System.getenv("PRIVATE_KEY"))
+        password.set(System.getenv("PRIVATE_KEY_PASSWORD"))
     }
     
     publishing {
-        token = System.getenv("PUBLISH_TOKEN") ?: ""
+        token.set(System.getenv("PUBLISH_TOKEN"))
     }
 }
 
