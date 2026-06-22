@@ -27,14 +27,18 @@ diff** — in a single panel, so you can review parallel work at a glance.
 | Feature | Description |
 |---------|-------------|
 | **Active Worktrees tool window** | Lists active worktrees (`git worktree list`) in the right dock |
-| **Change badges** | Shows `+insertions -deletions` per worktree (`git diff --shortstat`) |
-| **Changed-file browsing** | Selecting a worktree lists its changed files (refreshed on every click) |
-| **Single-file diff** | Double-click a file for a Main ↔ worktree side-by-side diff |
+| **Change badges** | Shows `+insertions -deletions` per worktree (`git diff HEAD --shortstat`) |
+| **Changed-file browsing** | Selecting a worktree lists its uncommitted changes (`git diff HEAD`), refreshed on every click |
+| **Single-file diff** | Double-click a file to diff its committed (`HEAD`) version against the working tree |
 | **Review all** | Pages through every changed file in a single, reused diff tab |
 | **Open in IDE** | Opens the selected worktree as a project in a new window |
-| **Delete** | Removes the selected worktree after confirmation (`git worktree remove`) |
+| **Delete** | Removes the selected worktree after confirmation (`git worktree remove`) and closes its open diff |
 | **Refresh** | Reloads the worktree list and stats on demand |
 | **Shortcut** | `Alt+Shift+W` toggles the tool window (also added to the Git menu) |
+
+> **What's compared:** each diff is the file's committed version (`HEAD`) versus the
+> current working tree — i.e. the worktree's **uncommitted** changes only. Changes
+> already committed on the branch are not shown.
 
 > All git calls run on a background thread, so the IDE UI never freezes.
 
