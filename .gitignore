@@ -1,5 +1,7 @@
 node_modules/
 build/
+.gradle/
+.intellijPlatform/
 dist/
 coverage/
 .DS_Store
