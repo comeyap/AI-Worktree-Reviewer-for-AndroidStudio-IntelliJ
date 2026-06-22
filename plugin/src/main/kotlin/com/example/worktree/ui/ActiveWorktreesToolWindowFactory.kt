@@ -1,22 +1,22 @@
 package com.example.worktree.ui
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import com.example.worktree.service.WorktreeService
 import com.example.worktree.service.WorktreeInfo
 import com.example.worktree.service.DiffStats
-import com.example.worktree.actions.DiffReviewAction
-import com.intellij.ide.impl.ProjectUtil
 import com.intellij.diff.DiffContentFactory
-import com.intellij.diff.DiffDialogHints
-import com.intellij.diff.DiffManager
 import com.intellij.diff.chains.SimpleDiffRequestChain
+import com.intellij.diff.editor.ChainDiffVirtualFile
 import com.intellij.diff.requests.SimpleDiffRequest
-import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.ide.impl.ProjectUtil
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBLabel
@@ -26,6 +26,8 @@ import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.awt.Font
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.io.File
 import javax.swing.*
 
@@ -49,7 +51,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             }
         }
 
-        // ----- Changed-files list + "Review all" -----
+        // ----- Changed-files list -----
         val filesModel = DefaultListModel<String>()
         val filesList = JBList(filesModel).apply {
             selectionMode = ListSelectionModel.SINGLE_SELECTION
@@ -61,44 +63,49 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             }
         }
         val reviewAllButton = JButton("Review all").apply { isEnabled = false }
+
+        // ----- Worktree-scoped actions (placed above the list) -----
         val refreshButton = JButton("Refresh")
-        val deleteButton = JButton("Delete").apply { isEnabled = false }
         val openButton = JButton("Open in IDE").apply { isEnabled = false }
+        val deleteButton = JButton("Delete").apply { isEnabled = false }
 
-        // ----- Behaviour -----
-
-        fun openSingleDiff(worktree: WorktreeInfo, relativePath: String) {
-            val basePath = project.basePath ?: return
-            DiffReviewAction(
-                project,
-                File(basePath, relativePath),
-                File(worktree.path, relativePath),
-                relativePath
-            ).showDiff()
+        // ----- Diff helpers -----
+        // Reuse a single diff editor tab: close the previous one before opening a
+        // new one, so navigating files never stacks duplicate diff windows/tabs.
+        var lastDiffFile: VirtualFile? = null
+        fun showDiff(requests: List<SimpleDiffRequest>, title: String) {
+            if (requests.isEmpty()) return
+            val editorManager = FileEditorManager.getInstance(project)
+            lastDiffFile?.let { if (it.isValid) editorManager.closeFile(it) }
+            val diffFile = ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
+            lastDiffFile = diffFile
+            editorManager.openFile(diffFile, true)
         }
 
-        // Opens every changed file in one diff viewer that can be paged with prev/next.
-        fun reviewAll(worktree: WorktreeInfo, files: List<String>) {
-            val basePath = project.basePath ?: return
-            val factory = DiffContentFactory.getInstance()
+        fun buildRequest(worktree: WorktreeInfo, relativePath: String): SimpleDiffRequest? {
+            val basePath = project.basePath ?: return null
             val lfs = LocalFileSystem.getInstance()
-            val requests = files.mapNotNull { rel ->
-                val original = lfs.refreshAndFindFileByIoFile(File(basePath, rel))
-                val modified = lfs.refreshAndFindFileByIoFile(File(worktree.path, rel))
-                if (original == null || modified == null) {
-                    null
-                } else {
-                    SimpleDiffRequest(
-                        rel,
-                        factory.create(project, original),
-                        factory.create(project, modified),
-                        "Main (Repository Home)",
-                        "Worktree: ${worktree.name}"
-                    )
-                }
-            }
-            if (requests.isEmpty()) return
-            DiffManager.getInstance().showDiff(project, SimpleDiffRequestChain(requests), DiffDialogHints.DEFAULT)
+            val original = lfs.refreshAndFindFileByIoFile(File(basePath, relativePath)) ?: return null
+            val modified = lfs.refreshAndFindFileByIoFile(File(worktree.path, relativePath)) ?: return null
+            val factory = DiffContentFactory.getInstance()
+            return SimpleDiffRequest(
+                relativePath,
+                factory.create(project, original),
+                factory.create(project, modified),
+                "Main (Repository Home)",
+                "Worktree: ${worktree.name}"
+            )
+        }
+
+        fun openSingleDiff(worktree: WorktreeInfo, relativePath: String) {
+            val request = buildRequest(worktree, relativePath) ?: return
+            showDiff(listOf(request), relativePath)
+        }
+
+        // Opens every changed file in the one diff tab; page through with prev/next.
+        fun reviewAll(worktree: WorktreeInfo, files: List<String>) {
+            val requests = files.mapNotNull { buildRequest(worktree, it) }
+            showDiff(requests, "${worktree.name} — all changes")
         }
 
         // Loads the changed files for a worktree; also refreshes its +/- badge.
@@ -131,6 +138,8 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                     worktrees.forEach { worktreeModel.addElement(it) }
                     filesModel.clear()
                     reviewAllButton.isEnabled = false
+                    openButton.isEnabled = false
+                    deleteButton.isEnabled = false
                     refreshButton.isEnabled = true
                 }
             }
@@ -159,18 +168,21 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         worktreeList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
                 val selected = worktreeList.selectedValue
-                deleteButton.isEnabled = selected != null
                 openButton.isEnabled = selected != null
+                deleteButton.isEnabled = selected != null
                 selected?.let { loadFilesFor(it) }
             }
         }
-        filesList.addListSelectionListener { e ->
-            if (!e.valueIsAdjusting) {
-                val worktree = worktreeList.selectedValue
-                val relativePath = filesList.selectedValue
-                if (worktree != null && relativePath != null) openSingleDiff(worktree, relativePath)
+        // Open a file's diff on double-click only; single clicks just select.
+        filesList.addMouseListener(object : MouseAdapter() {
+            override fun mouseClicked(e: MouseEvent) {
+                if (e.clickCount == 2) {
+                    val worktree = worktreeList.selectedValue
+                    val relativePath = filesList.selectedValue
+                    if (worktree != null && relativePath != null) openSingleDiff(worktree, relativePath)
+                }
             }
-        }
+        })
         reviewAllButton.addActionListener {
             val worktree = worktreeList.selectedValue ?: return@addActionListener
             val files = (0 until filesModel.size()).map { filesModel.getElementAt(it) }
@@ -185,24 +197,35 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         }
 
         // ----- Layout -----
-        val header = JPanel(BorderLayout()).apply {
-            add(JBLabel("Active Repository Worktrees").apply { font = font.deriveFont(Font.BOLD, 13f) }, BorderLayout.WEST)
-            add(JPanel(FlowLayout(FlowLayout.RIGHT, 2, 0)).apply { add(refreshButton) }, BorderLayout.EAST)
-            border = JBUI.Borders.emptyBottom(5)
+        // Title + worktree-scoped actions sit on top of the worktree list, so
+        // it is clear that Open/Delete act on the selected worktree.
+        val titleLabel = JBLabel("Active Repository Worktrees").apply {
+            font = font.deriveFont(Font.BOLD, 13f)
+            border = JBUI.Borders.emptyBottom(3)
         }
-
-        val worktreeActions = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+        val actionToolbar = JPanel(FlowLayout(FlowLayout.LEFT, 4, 0)).apply {
+            add(refreshButton)
             add(openButton)
             add(deleteButton)
         }
+        val header = JPanel(BorderLayout()).apply {
+            add(titleLabel, BorderLayout.NORTH)
+            add(actionToolbar, BorderLayout.CENTER)
+            border = JBUI.Borders.emptyBottom(5)
+        }
+
         val worktreePanel = JPanel(BorderLayout()).apply {
             add(JBScrollPane(worktreeList), BorderLayout.CENTER)
-            add(worktreeActions, BorderLayout.SOUTH)
+        }
+
+        // "Changed files" label with the Review all button directly beneath it.
+        val filesHeader = JPanel(BorderLayout()).apply {
+            add(JBLabel("Changed files (double-click to diff)"), BorderLayout.NORTH)
+            add(JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply { add(reviewAllButton) }, BorderLayout.CENTER)
         }
         val filesPanel = JPanel(BorderLayout()).apply {
-            add(JBLabel("Changed files"), BorderLayout.NORTH)
+            add(filesHeader, BorderLayout.NORTH)
             add(JBScrollPane(filesList), BorderLayout.CENTER)
-            add(JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply { add(reviewAllButton) }, BorderLayout.SOUTH)
         }
         val splitter = JBSplitter(true, 0.5f).apply {
             firstComponent = worktreePanel
