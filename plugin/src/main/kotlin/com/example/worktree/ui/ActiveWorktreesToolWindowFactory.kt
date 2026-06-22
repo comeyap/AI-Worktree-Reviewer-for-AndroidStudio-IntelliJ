@@ -10,6 +10,7 @@ import com.example.worktree.service.WorktreeService
 import com.example.worktree.service.WorktreeInfo
 import com.example.worktree.service.DiffStats
 import com.example.worktree.actions.DiffReviewAction
+import com.intellij.ide.impl.ProjectUtil
 import com.intellij.diff.DiffContentFactory
 import com.intellij.diff.DiffDialogHints
 import com.intellij.diff.DiffManager
@@ -62,6 +63,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val reviewAllButton = JButton("Review all").apply { isEnabled = false }
         val refreshButton = JButton("Refresh")
         val deleteButton = JButton("Delete").apply { isEnabled = false }
+        val openButton = JButton("Open in IDE").apply { isEnabled = false }
 
         // ----- Behaviour -----
 
@@ -149,10 +151,16 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             }
         }
 
+        // Opens the worktree directory as a project in a new IDE window.
+        fun openInIde(worktree: WorktreeInfo) {
+            ProjectUtil.openOrImport(File(worktree.path).toPath(), project, true)
+        }
+
         worktreeList.addListSelectionListener { e ->
             if (!e.valueIsAdjusting) {
                 val selected = worktreeList.selectedValue
                 deleteButton.isEnabled = selected != null
+                openButton.isEnabled = selected != null
                 selected?.let { loadFilesFor(it) }
             }
         }
@@ -172,6 +180,9 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         deleteButton.addActionListener {
             worktreeList.selectedValue?.let { deleteWorktree(it) }
         }
+        openButton.addActionListener {
+            worktreeList.selectedValue?.let { openInIde(it) }
+        }
 
         // ----- Layout -----
         val header = JPanel(BorderLayout()).apply {
@@ -181,6 +192,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         }
 
         val worktreeActions = JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply {
+            add(openButton)
             add(deleteButton)
         }
         val worktreePanel = JPanel(BorderLayout()).apply {
