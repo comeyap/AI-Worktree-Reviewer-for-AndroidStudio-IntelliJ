@@ -12,6 +12,12 @@ data class WorktreeInfo(
     val name: String
 )
 
+data class DiffStats(
+    val filesChanged: Int,
+    val insertions: Int,
+    val deletions: Int
+)
+
 @Service(Service.Level.PROJECT)
 class WorktreeService(private val project: Project) {
 
@@ -73,6 +79,15 @@ class WorktreeService(private val project: Project) {
 
     fun getDiffShortstat(worktreePath: String): String =
         runCommand(worktreePath, listOf("git", "diff", "--shortstat"))
+
+    /** Parses `git diff --shortstat` into structured insertion/deletion counts. */
+    fun getDiffStats(worktreePath: String): DiffStats {
+        val output = getDiffShortstat(worktreePath)
+        val filesChanged = Regex("(\\d+) files? changed").find(output)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val insertions = Regex("(\\d+) insertion").find(output)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        val deletions = Regex("(\\d+) deletion").find(output)?.groupValues?.get(1)?.toIntOrNull() ?: 0
+        return DiffStats(filesChanged, insertions, deletions)
+    }
 
     fun getModifiedFiles(worktreePath: String): List<String> =
         runCommand(worktreePath, listOf("git", "diff", "--name-only"))
