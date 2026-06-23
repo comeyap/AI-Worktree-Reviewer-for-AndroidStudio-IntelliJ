@@ -182,11 +182,20 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                         reloadWorktrees()
                         return@invokeLater
                     }
-                    // git refused — usually uncommitted/untracked changes. Offer a forced remove.
+                    // git refused — usually uncommitted/untracked changes. Offer a forced remove
+                    // with a strong warning, since this permanently discards that work.
                     val forceChoice = Messages.showYesNoDialog(
                         project,
-                        "Could not remove \"${worktree.name}\".\nIt may contain uncommitted or untracked changes. Force remove? (those changes will be lost)",
-                        "Force Remove Worktree",
+                        "⚠ WARNING — THIS PERMANENTLY DELETES UNCOMMITTED WORK ⚠\n\n" +
+                            "\"${worktree.name}\" could not be removed because it contains " +
+                            "uncommitted or untracked changes.\n\n" +
+                            "Path: ${worktree.path}\n\n" +
+                            "Force-removing will PERMANENTLY DISCARD all of those changes. " +
+                            "There is NO undo and the work CANNOT be recovered.\n\n" +
+                            "Only continue if you are absolutely sure you no longer need this work.",
+                        "Force Remove Worktree — Permanent Data Loss",
+                        "Force remove (discard all changes)",
+                        "Cancel",
                         Messages.getWarningIcon()
                     )
                     if (forceChoice != Messages.YES) return@invokeLater
