@@ -77,9 +77,6 @@ class WorktreeService(private val project: Project) {
     fun getBranchName(worktreePath: String): String =
         runCommand(worktreePath, listOf("git", "branch", "--show-current"))
 
-    fun getDiffShortstat(worktreePath: String): String =
-        runCommand(worktreePath, listOf("git", "diff", "HEAD", "--shortstat"))
-
     /**
      * Returns the HEAD (committed) version of a file in the worktree, or null if
      * the file does not exist at HEAD (i.e. it was newly added in the worktree).
@@ -98,18 +95,77 @@ class WorktreeService(private val project: Project) {
         }
     }
 
-    /** Parses `git diff --shortstat` into structured insertion/deletion counts. */
+    /**
+     * Counts uncommitted changes vs HEAD, INCLUDING untracked (newly added)
+     * files: tracked changes come from `git diff HEAD --numstat`, and each
+     * untracked file's line count is added as insertions. `git diff` alone
+     * ignores untracked files, so a worktree with only new files would
+     * otherwise report "+0 -0".
+     */
     fun getDiffStats(worktreePath: String): DiffStats {
-        val output = getDiffShortstat(worktreePath)
-        val filesChanged = Regex("(\\d+) files? changed").find(output)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-        val insertions = Regex("(\\d+) insertion").find(output)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-        val deletions = Regex("(\\d+) deletion").find(output)?.groupValues?.get(1)?.toIntOrNull() ?: 0
-        return DiffStats(filesChanged, insertions, deletions)
+        var insertions = 0
+        var deletions = 0
+        val changed = HashSet<String>()
+        // numstat line: "<ins>\t<del>\t<path>" ("-" for binary files).
+        runCommand(worktreePath, listOf("git", "diff", "HEAD", "--numstat"))
+            .split("\n").filter { it.isNotBlank() }.forEach { line ->
+                val parts = line.split("\t")
+                if (parts.size >= 3) {
+                    insertions += parts[0].toIntOrNull() ?: 0
+                    deletions += parts[1].toIntOrNull() ?: 0
+                    changed.add(parts[2])
+                }
+            }
+        getUntrackedFiles(worktreePath).forEach { rel ->
+            val f = File(worktreePath, rel)
+            if (f.isFile) {
+                insertions += countLines(f)
+                changed.add(rel)
+            }
+        }
+        return DiffStats(changed.size, insertions, deletions)
     }
 
+    /**
+     * All files with uncommitted changes vs HEAD, INCLUDING untracked (new)
+     * files. Uses `git status --porcelain` rather than `git diff HEAD`, because
+     * `git diff` omits untracked files entirely; `--untracked-files=all` also
+     * lists individual files inside newly created (untracked) directories.
+     */
     fun getModifiedFiles(worktreePath: String): List<String> =
-        runCommand(worktreePath, listOf("git", "diff", "HEAD", "--name-only"))
+        runCommand(worktreePath, listOf("git", "status", "--porcelain", "--untracked-files=all"))
             .split("\n").filter { it.isNotBlank() }
+            .mapNotNull { statusLineToPath(it) }
+            .distinct()
+
+    private fun getUntrackedFiles(worktreePath: String): List<String> =
+        runCommand(worktreePath, listOf("git", "ls-files", "--others", "--exclude-standard"))
+            .split("\n").filter { it.isNotBlank() }
+
+    /** Extracts the file path from a `git status --porcelain` line. */
+    private fun statusLineToPath(line: String): String? {
+        if (line.length < 4) return null
+        // "XY <path>" or, for renames/copies, "XY <orig> -> <path>".
+        var path = line.substring(3)
+        val arrow = path.indexOf(" -> ")
+        if (arrow >= 0) path = path.substring(arrow + 4)
+        path = path.trim()
+        // git quotes paths that contain special characters.
+        if (path.length >= 2 && path.startsWith("\"") && path.endsWith("\"")) {
+            path = path.substring(1, path.length - 1)
+        }
+        return path.ifBlank { null }
+    }
+
+    private fun countLines(file: File): Int = try {
+        file.bufferedReader().use { reader ->
+            var count = 0
+            while (reader.readLine() != null) count++
+            count
+        }
+    } catch (e: Exception) {
+        0
+    }
 
     /** True if the worktree has any uncommitted or untracked changes. */
     fun hasUncommittedChanges(worktreePath: String): Boolean =
