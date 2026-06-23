@@ -6,6 +6,12 @@
 > without leaving your editor — built for the era of AI coding agents that work
 > several branches in parallel.
 
+<p align="center">
+  <img src="screenshots/marketplace.png"
+       alt="The Active Worktrees panel beside a side-by-side HEAD ↔ working-tree diff"
+       width="900">
+</p>
+
 ## What it is
 
 AI Worktree Reviewer adds an **Active Worktrees** tool window to IntelliJ IDEA

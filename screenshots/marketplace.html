@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<!-- A faithful re-creation of the AI Worktree Reviewer UI in the IntelliJ
+     New UI (Dark) theme, for the JetBrains Marketplace listing. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  :root{
+    --editor-bg:#1e1f22;
+    --panel-bg:#2b2d30;
+    --border:#393b40;
+    --text:#dfe1e5;
+    --dim:#868a91;
+    --sel-bg:#2e436e;
+    --btn-bg:#33353a;
+    --btn-border:#4e5157;
+    --btn-text:#ced0d6;
+    --accent:#3574f0;
+    --gutter:#5a5d63;
+    --added-bg:#26352b;
+    --added-strip:#499c54;
+    --removed-bg:#3f2b2e;
+    --kw:#cf8e6d;
+    --str:#6aab73;
+    --type:#b9c0cb;
+    --fn:#57aaf7;
+    --num:#2aacb8;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:1280px;height:720px}
+  body{
+    background:var(--editor-bg);
+    font-family:'Inter','SF Pro Text',-apple-system,'Helvetica Neue',sans-serif;
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+  .window{width:1280px;height:720px;display:flex;flex-direction:column}
+
+  /* ---- window title bar ---- */
+  .titlebar{
+    height:38px;background:var(--panel-bg);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;padding:0 14px;gap:14px;flex:none;
+  }
+  .lights{display:flex;gap:8px}
+  .lights i{width:12px;height:12px;border-radius:50%;display:block}
+  .lights .r{background:#ff5f57}.lights .y{background:#febc2e}.lights .g{background:#28c840}
+  .proj{font-size:12.5px;color:var(--dim)}
+  .proj b{color:var(--text);font-weight:600}
+
+  /* ---- tab strip ---- */
+  .tabs{height:34px;background:var(--editor-bg);border-bottom:1px solid var(--border);display:flex;align-items:flex-end;flex:none}
+  .tab{height:34px;display:flex;align-items:center;gap:8px;padding:0 16px;font-size:12.5px;color:var(--text);
+       background:var(--editor-bg);border-right:1px solid var(--border);position:relative}
+  .tab.active::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--accent)}
+  .tab svg{flex:none}
+
+  /* ---- main body: editor + tool window ---- */
+  .body{flex:1;display:flex;min-height:0}
+
+  /* ---- diff editor ---- */
+  .editor{flex:1;display:flex;flex-direction:column;min-width:0;border-right:1px solid var(--border)}
+  .difftitle{height:30px;display:flex;align-items:center;gap:18px;padding:0 16px;font-size:12px;color:var(--dim);
+             background:var(--editor-bg);border-bottom:1px solid var(--border);flex:none}
+  .difftitle .side{flex:1}
+  .difftitle b{color:var(--text);font-weight:500}
+  .panes{flex:1;display:flex;min-height:0}
+  .pane{flex:1;min-width:0;overflow:hidden}
+  .pane.left{border-right:1px solid var(--border)}
+  pre.code{font-family:'JetBrains Mono','Menlo',monospace;font-size:12.5px;line-height:20px;color:var(--text);padding:6px 0;white-space:pre}
+  .ln{display:flex;height:20px}
+  .ln .num{width:40px;text-align:right;padding-right:12px;color:var(--gutter);user-select:none;flex:none}
+  .ln .src{padding-left:10px;flex:1}
+  .ln.add{background:var(--added-bg);border-left:3px solid var(--added-strip);margin-left:-3px}
+  .ln.del{background:var(--removed-bg);border-left:3px solid #c75d61;margin-left:-3px}
+  .ln.add .num,.ln.del .num{padding-right:9px}
+  .kw{color:var(--kw)}.str{color:var(--str)}.ty{color:var(--type)}.fn{color:var(--fn)}.nu{color:var(--num)}.cm{color:#7a7e85}
+
+  /* ---- Active Worktrees tool window ---- */
+  .tool{width:372px;flex:none;background:var(--panel-bg);display:flex;flex-direction:column}
+  .toolhdr{height:30px;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:12px;font-weight:600;
+           color:var(--text);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.3px}
+  .toolhdr .lc{text-transform:none;letter-spacing:0}
+  .content{padding:10px 12px;display:flex;flex-direction:column;height:100%}
+  .title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px}
+  .toolbar{display:flex;gap:6px;margin-bottom:10px}
+  .btn{font-size:12px;color:var(--btn-text);background:var(--btn-bg);border:1px solid var(--btn-border);
+       border-radius:6px;padding:4px 11px;line-height:16px;white-space:nowrap}
+  .btn.dis{color:#5c5f66;border-color:#3a3c41}
+  .sectlbl{font-size:12px;color:var(--dim);margin:4px 0 7px}
+  .list{display:flex;flex-direction:column;gap:1px}
+  .row{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;font-size:12.5px;color:var(--text)}
+  .row.sel{background:var(--sel-bg)}
+  .row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .row .branch{color:var(--dim)}
+  .row.sel .branch{color:#c6d4f2}
+  .badge{color:var(--dim);font-variant-numeric:tabular-nums}
+  .row.sel .badge{color:#c6d4f2}
+  .divider{height:1px;background:var(--border);margin:11px -12px}
+  .filerow .pth{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
+  .grow{flex:1}
+  svg{display:block}
+</style>
+</head>
+<body>
+<div class="window">
+
+  <!-- title bar -->
+  <div class="titlebar">
+    <span class="lights"><i class="r"></i><i class="y"></i><i class="g"></i></span>
+    <span class="proj"><b>my-android-app</b> &nbsp;–&nbsp; feature/auth</span>
+  </div>
+
+  <!-- tab strip -->
+  <div class="tabs">
+    <div class="tab active">
+      <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
+      AuthRepository.kt
+    </div>
+  </div>
+
+  <!-- editor + tool window -->
+  <div class="body">
+
+    <!-- diff editor -->
+    <div class="editor">
+      <div class="difftitle">
+        <span class="side"><b>HEAD</b> (feature/auth)</span>
+        <span class="side"><b>Working tree</b></span>
+      </div>
+      <div class="panes">
+        <!-- LEFT: HEAD -->
+        <div class="pane left">
+          <pre class="code"><div class="ln"><span class="num">12</span><span class="src"><span class="kw">package</span> com.example.auth</span></div><div class="ln"><span class="num">13</span><span class="src"> </span></div><div class="ln"><span class="num">14</span><span class="src"><span class="kw">class</span> <span class="ty">AuthRepository</span>(</span></div><div class="ln"><span class="num">15</span><span class="src">    <span class="kw">private val</span> api: <span class="ty">AuthApi</span>,</span></div><div class="ln"><span class="num">16</span><span class="src">) {</span></div><div class="ln del"><span class="num">17</span><span class="src">    <span class="cm">// FIXME: token is not persisted</span></span></div><div class="ln"><span class="num">18</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">login</span>(id: <span class="ty">String</span>, pw: <span class="ty">String</span>): <span class="ty">User</span> {</span></div><div class="ln"><span class="num">19</span><span class="src">        <span class="kw">val</span> res = api.<span class="fn">login</span>(id, pw)</span></div><div class="ln"><span class="num">20</span><span class="src">        <span class="kw">return</span> res.user</span></div><div class="ln"><span class="num">21</span><span class="src">    }</span></div><div class="ln"><span class="num">22</span><span class="src"> </span></div><div class="ln"><span class="num">23</span><span class="src">    <span class="kw">fun</span> <span class="fn">isLoggedIn</span>() = api.<span class="fn">hasSession</span>()</span></div><div class="ln"><span class="num">24</span><span class="src">}</span></div></pre>
+        </div>
+        <!-- RIGHT: Working tree -->
+        <div class="pane right">
+          <pre class="code"><div class="ln"><span class="num">12</span><span class="src"><span class="kw">package</span> com.example.auth</span></div><div class="ln"><span class="num">13</span><span class="src"> </span></div><div class="ln"><span class="num">14</span><span class="src"><span class="kw">class</span> <span class="ty">AuthRepository</span>(</span></div><div class="ln"><span class="num">15</span><span class="src">    <span class="kw">private val</span> api: <span class="ty">AuthApi</span>,</span></div><div class="ln add"><span class="num">16</span><span class="src">    <span class="kw">private val</span> tokenStore: <span class="ty">TokenStore</span>,</span></div><div class="ln"><span class="num">17</span><span class="src">) {</span></div><div class="ln"><span class="num">18</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">login</span>(id: <span class="ty">String</span>, pw: <span class="ty">String</span>): <span class="ty">User</span> {</span></div><div class="ln"><span class="num">19</span><span class="src">        <span class="kw">val</span> res = api.<span class="fn">login</span>(id, pw)</span></div><div class="ln add"><span class="num">20</span><span class="src">        tokenStore.<span class="fn">save</span>(res.token)</span></div><div class="ln"><span class="num">21</span><span class="src">        <span class="kw">return</span> res.user</span></div><div class="ln"><span class="num">22</span><span class="src">    }</span></div><div class="ln"><span class="num">23</span><span class="src"> </span></div><div class="ln add"><span class="num">24</span><span class="src">    <span class="kw">fun</span> <span class="fn">isLoggedIn</span>() = tokenStore.<span class="fn">isValid</span>()</span></div><div class="ln"><span class="num">25</span><span class="src">}</span></div></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Worktrees tool window -->
+    <div class="tool">
+      <div class="toolhdr">
+        <svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" fill="#b3895a"/></svg>
+        <span class="lc">Active Worktrees</span>
+      </div>
+      <div class="content">
+        <div class="title">Active Repository Worktrees</div>
+        <div class="toolbar">
+          <span class="btn">Refresh</span>
+          <span class="btn">Open in IDE</span>
+          <span class="btn">Delete</span>
+        </div>
+
+        <div class="list">
+          <div class="row">
+            <svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" fill="#b3895a"/></svg>
+            <span class="nm">main <span class="branch">(main)</span></span>
+          </div>
+          <div class="row sel">
+            <svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" fill="#d6a86a"/></svg>
+            <span class="nm">feature-auth <span class="branch">(feature/auth)</span></span>
+            <span class="badge">+37 −6</span>
+          </div>
+          <div class="row">
+            <svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" fill="#b3895a"/></svg>
+            <span class="nm">fix-crash <span class="branch">(fix/npe-on-logout)</span></span>
+            <span class="badge">+8 −2</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="sectlbl">Changed files (double-click to diff)</div>
+        <div class="toolbar"><span class="btn">Review all</span></div>
+
+        <div class="list">
+          <div class="filerow row sel">
+            <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
+            <span class="pth">app/src/main/java/auth/AuthRepository.kt</span>
+          </div>
+          <div class="filerow row">
+            <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
+            <span class="pth">app/src/main/java/auth/LoginActivity.kt</span>
+          </div>
+          <div class="filerow row">
+            <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
+            <span class="pth">app/src/main/java/auth/TokenStore.kt</span>
+          </div>
+          <div class="filerow row">
+            <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
+            <span class="pth">app/src/main/res/values/strings.xml</span>
+          </div>
+        </div>
+
+        <div class="grow"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
