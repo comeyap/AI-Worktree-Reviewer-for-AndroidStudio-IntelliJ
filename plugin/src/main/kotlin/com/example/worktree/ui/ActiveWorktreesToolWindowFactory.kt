@@ -42,12 +42,14 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val worktreeModel = DefaultListModel<WorktreeInfo>()
         val worktreeList = JBList(worktreeModel).apply {
             selectionMode = ListSelectionModel.SINGLE_SELECTION
-            cellRenderer = SimpleListCellRenderer.create { label, value, _ ->
-                if (value != null) {
-                    val s = statsByPath[value.path]
-                    val badge = if (s != null) "   +${s.insertions} -${s.deletions}" else ""
-                    label.text = "${value.name} (${value.branch})$badge"
-                    label.icon = com.intellij.icons.AllIcons.Nodes.Folder
+            cellRenderer = object : SimpleListCellRenderer<WorktreeInfo>() {
+                override fun customize(list: JList<out WorktreeInfo>, value: WorktreeInfo?, index: Int, selected: Boolean, hasFocus: Boolean) {
+                    if (value != null) {
+                        val s = statsByPath[value.path]
+                        val badge = if (s != null) "   +${s.insertions} -${s.deletions}" else ""
+                        text = "${value.name} (${value.branch})$badge"
+                        icon = com.intellij.icons.AllIcons.Nodes.Folder
+                    }
                 }
             }
         }
@@ -57,10 +59,12 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val filesList = JBList(filesModel).apply {
             selectionMode = ListSelectionModel.SINGLE_SELECTION
             emptyText.text = "Select a worktree to see its changed files"
-            cellRenderer = SimpleListCellRenderer.create { label, value, _ ->
-                if (value != null) {
-                    label.text = value
-                    label.icon = com.intellij.icons.AllIcons.FileTypes.Any_type
+            cellRenderer = object : SimpleListCellRenderer<String>() {
+                override fun customize(list: JList<out String>, value: String?, index: Int, selected: Boolean, hasFocus: Boolean) {
+                    if (value != null) {
+                        text = value
+                        icon = com.intellij.icons.AllIcons.FileTypes.Any_type
+                    }
                 }
             }
         }
