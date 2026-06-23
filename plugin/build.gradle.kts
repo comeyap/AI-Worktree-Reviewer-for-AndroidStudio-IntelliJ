@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.developer"
-version = "1.0.1"
+version = "1.0.2"
 
 repositories {
     mavenCentral()
@@ -25,7 +25,7 @@ intellijPlatform {
     pluginConfiguration {
         id.set("com.github.developer.aiworktreereviewer")
         name.set("AI Worktree Reviewer")
-        version.set("1.0.1")
+        version.set("1.0.2")
         
         ideaVersion {
             sinceBuild.set("241")
