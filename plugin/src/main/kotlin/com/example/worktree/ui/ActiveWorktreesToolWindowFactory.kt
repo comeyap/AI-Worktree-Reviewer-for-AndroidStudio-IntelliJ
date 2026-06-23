@@ -21,6 +21,7 @@ import com.intellij.ui.JBSplitter
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBList
+import com.intellij.ui.components.JBLoadingPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.util.ui.JBUI
 import java.awt.BorderLayout
@@ -69,6 +70,11 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val refreshButton = JButton("Refresh")
         val openButton = JButton("Open in IDE").apply { isEnabled = false }
         val deleteButton = JButton("Delete").apply { isEnabled = false }
+
+        // Spinner overlays shown over each list while its git data is fetched
+        // off the EDT (a rotating "loading" icon, not just placeholder text).
+        val worktreeLoadingPanel = JBLoadingPanel(BorderLayout(), toolWindow.disposable)
+        val filesLoadingPanel = JBLoadingPanel(BorderLayout(), toolWindow.disposable)
 
         // ----- Diff helpers -----
         // Reuse a single diff editor tab: close the previous one before opening a
@@ -134,27 +140,32 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         fun loadFilesFor(worktree: WorktreeInfo) {
             filesModel.clear()
             reviewAllButton.isEnabled = false
-            // Show a "Loading…" placeholder instead of the default "Nothing to show"
-            // while the changed-file list is fetched off the EDT.
+            // Show a spinner over the list while the changed files are fetched
+            // off the EDT (plus a placeholder for the empty state).
             filesList.emptyText.text = "Loading changed files…"
+            filesLoadingPanel.startLoading()
             app.executeOnPooledThread {
                 val files = service.getModifiedFiles(worktree.path)
                 val stats = service.getDiffStats(worktree.path)
                 app.invokeLater {
                     statsByPath[worktree.path] = stats
                     worktreeList.repaint()
-                    // Drop stale results if the user already moved to another worktree.
+                    // Drop stale results if the user already moved to another
+                    // worktree; the newer load owns the spinner and will stop it.
                     if (worktreeList.selectedValue?.path != worktree.path) return@invokeLater
                     filesModel.clear()
                     files.forEach { filesModel.addElement(it) }
                     reviewAllButton.isEnabled = files.isNotEmpty()
                     filesList.emptyText.text = if (files.isEmpty()) "No uncommitted changes" else "Nothing to show"
+                    filesLoadingPanel.stopLoading()
                 }
             }
         }
 
         fun reloadWorktrees() {
             refreshButton.isEnabled = false
+            // Spinner over the worktree list while it is (re)loaded off the EDT.
+            worktreeLoadingPanel.startLoading()
             app.executeOnPooledThread {
                 val worktrees = service.getWorktrees()
                 val stats = worktrees.associate { it.path to service.getDiffStats(it.path) }
@@ -169,6 +180,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                     openButton.isEnabled = false
                     deleteButton.isEnabled = false
                     refreshButton.isEnabled = true
+                    worktreeLoadingPanel.stopLoading()
                 }
             }
         }
@@ -276,7 +288,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             border = JBUI.Borders.emptyBottom(5)
         }
 
-        val worktreePanel = JPanel(BorderLayout()).apply {
+        val worktreePanel = worktreeLoadingPanel.apply {
             add(JBScrollPane(worktreeList), BorderLayout.CENTER)
         }
 
@@ -285,9 +297,10 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             add(JBLabel("Changed files (double-click to diff)"), BorderLayout.NORTH)
             add(JPanel(FlowLayout(FlowLayout.LEFT, 2, 0)).apply { add(reviewAllButton) }, BorderLayout.CENTER)
         }
+        filesLoadingPanel.add(JBScrollPane(filesList), BorderLayout.CENTER)
         val filesPanel = JPanel(BorderLayout()).apply {
             add(filesHeader, BorderLayout.NORTH)
-            add(JBScrollPane(filesList), BorderLayout.CENTER)
+            add(filesLoadingPanel, BorderLayout.CENTER)
         }
         val splitter = JBSplitter(true, 0.5f).apply {
             firstComponent = worktreePanel
