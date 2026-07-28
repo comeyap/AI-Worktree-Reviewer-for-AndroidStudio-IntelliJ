@@ -129,6 +129,10 @@ class WorktreeService(private val project: Project) {
     fun getBranchName(worktreePath: String): String =
         runCommand(worktreePath, listOf("git", "branch", "--show-current"))
 
+    /** The full HEAD commit SHA of the worktree, or "" if it cannot be read. */
+    fun getHeadSha(worktreePath: String): String =
+        runCommand(worktreePath, listOf("git", "rev-parse", "HEAD")).trim()
+
     /**
      * Returns the HEAD (committed) version of a file in the worktree, or null if
      * the file does not exist at HEAD (i.e. it was newly added in the worktree).
@@ -272,12 +276,21 @@ class WorktreeService(private val project: Project) {
         return BranchStatus(upstream, ahead, behind, base, baseAhead, hasUncommittedChanges(worktreePath))
     }
 
+    // Cached base-branch detection. Every worktree of a repository shares the
+    // same trunk and this service is project-scoped, so detection (up to 6 git
+    // processes) runs once instead of once per worktree on every reload. Holds
+    // BASE_UNCOMPUTED until first computed; thereafter the resolved name or null.
+    @Volatile
+    private var cachedBaseBranch: String? = BASE_UNCOMPUTED
+
     /**
      * Best-effort detection of the shared trunk to diff a worktree against.
      * Returns the first candidate that resolves to a real ref, or null if none
-     * do (e.g. a repo with no origin and an unusual default branch name).
+     * do (e.g. a repo with no origin and an unusual default branch name). Cached
+     * for the project after the first call (see [cachedBaseBranch]).
      */
     private fun detectBaseBranch(worktreePath: String): String? {
+        cachedBaseBranch.let { if (it !== BASE_UNCOMPUTED) return it }
         // origin/HEAD points at the remote's default branch when set.
         val originHead = runCommand(
             worktreePath,
@@ -285,7 +298,7 @@ class WorktreeService(private val project: Project) {
         ).takeIf { it.isNotBlank() && it != "origin/HEAD" }
         val candidates = listOfNotNull(originHead) +
             listOf("origin/main", "origin/master", "main", "master")
-        return candidates.firstOrNull { refExists(worktreePath, it) }
+        return candidates.firstOrNull { refExists(worktreePath, it) }.also { cachedBaseBranch = it }
     }
 
     private fun refExists(worktreePath: String, ref: String): Boolean {
@@ -311,22 +324,34 @@ class WorktreeService(private val project: Project) {
      * containing tabs or other whitespace parse cleanly.
      */
     fun getCommits(worktreePath: String, limit: Int = 50): List<CommitInfo> =
-        getCommits(worktreePath, limit, extraRevs = emptyList())
+        getCommits(worktreePath, limit, base = null)
 
     /**
-     * Recent commits, newest first, over HEAD plus any [extraRevs] (e.g. the base
-     * branch, so a branch's divergence from its trunk is visible). Includes each
-     * commit's parent SHAs (%P) so a graph can be laid out. --topo-order keeps
+     * Recent commits, newest first, always anchored at HEAD, capped at [limit].
+     * When [base] resolves, the range is `HEAD --not <base> --boundary`, so the
+     * list is the branch's own commits plus the boundary (merge-base) commit that
+     * shows where it diverged from the trunk -- never the trunk's own history.
+     *
+     * A plain `git log HEAD <base>` would instead take the newest [limit] from
+     * the UNION of both refs, so a base that is [limit]+ commits ahead would push
+     * every one of the worktree's own commits off the list. --topo-order keeps
      * parents strictly after children, which the lane layout relies on.
      */
-    fun getCommits(worktreePath: String, limit: Int, extraRevs: List<String>): List<CommitInfo> {
+    fun getCommits(worktreePath: String, limit: Int, base: String?): List<CommitInfo> {
         val sep = "\u001f"
         val format = "%H$sep%h$sep%s$sep%an$sep%ar$sep%P"
         val cmd = mutableListOf("git", "log", "-n", limit.toString(), "--topo-order", "--format=$format", "HEAD")
-        cmd.addAll(extraRevs)
+        if (base != null) {
+            // Limit to what HEAD adds over base, keeping the boundary commit so the
+            // divergence point (and thus the branch/merge shape) stays visible.
+            cmd.addAll(listOf("--boundary", "--not", base))
+        }
         return runCommand(worktreePath, cmd)
             .split("\n").filter { it.isNotBlank() }.mapNotNull { line ->
-                val parts = line.split(sep)
+                // `--boundary` prefixes boundary commits with '-'; strip it so the
+                // SHA parses (the marker is only needed by git's text renderer).
+                val clean = line.removePrefix("-")
+                val parts = clean.split(sep)
                 if (parts.size >= 5) {
                     val parents = if (parts.size >= 6) parts[5].split(" ").filter { it.isNotBlank() } else emptyList()
                     CommitInfo(parts[0], parts[1], parts[2], parts[3], parts[4], parents)
@@ -344,15 +369,22 @@ class WorktreeService(private val project: Project) {
      * and merges all render correctly. See [GraphCommit]/[GraphEdge].
      */
     fun getGraphCommits(worktreePath: String, limit: Int = 50, base: String? = null): List<GraphCommit> {
-        val extra = if (base != null && refExists(worktreePath, base)) listOf(base) else emptyList()
-        val commits = getCommits(worktreePath, limit, extra)
+        val resolvedBase = base?.takeIf { refExists(worktreePath, it) }
+        val commits = getCommits(worktreePath, limit, resolvedBase)
         if (commits.isEmpty()) return emptyList()
 
         // lanes[i] = the SHA currently expected to appear at lane i, or null if free.
         val lanes = ArrayList<String?>()
-        // Stable color per lane, reused when a lane is freed and reassigned.
+        // Color per lane column, keyed by column index and NEVER shrunk (unlike
+        // `lanes`, which is trimmed): a column that is freed and later reopened
+        // keeps its original hue, so a branch line's color stays stable down the
+        // list instead of flickering when trailing lanes are trimmed.
         val laneColor = ArrayList<Int>()
         var nextColor = 0
+        fun colorForColumn(col: Int): Int {
+            while (laneColor.size <= col) laneColor.add(nextColor++)
+            return laneColor[col]
+        }
         val result = ArrayList<GraphCommit>(commits.size)
 
         for (commit in commits) {
@@ -363,11 +395,10 @@ class WorktreeService(private val project: Project) {
                 if (col == -1) {
                     col = lanes.size
                     lanes.add(null)
-                    laneColor.add(nextColor++)
                 }
                 lanes[col] = commit.sha
             }
-            val nodeColor = laneColor[col]
+            val nodeColor = colorForColumn(col)
 
             // Snapshot the top-of-row lane state so edges reference the incoming lanes.
             val topLanes = ArrayList(lanes)
@@ -386,9 +417,9 @@ class WorktreeService(private val project: Project) {
                     if (pcol == -1) {
                         pcol = lanes.size
                         lanes.add(null)
-                        laneColor.add(nextColor++)
                     }
                     lanes[pcol] = p
+                    colorForColumn(pcol) // reserve/keep this column's stable hue
                 }
             }
 
@@ -404,7 +435,7 @@ class WorktreeService(private val project: Project) {
             val edges = ArrayList<GraphEdge>()
             for (i in topLanes.indices) {
                 val topSha = topLanes[i] ?: continue
-                val color = laneColor.getOrElse(i) { 0 }
+                val color = colorForColumn(i)
                 if (topSha == commit.sha) {
                     edges.add(GraphEdge(i, col, color)) // feeds the node
                 } else {
@@ -419,35 +450,53 @@ class WorktreeService(private val project: Project) {
             for (p in commit.parents) {
                 val bottom = lanes.indexOf(p)
                 if (bottom != -1 && bottom != col && topLanes.getOrNull(bottom) != p) {
-                    edges.add(GraphEdge(col, bottom, laneColor.getOrElse(bottom) { 0 }))
+                    edges.add(GraphEdge(col, bottom, colorForColumn(bottom)))
                 }
             }
 
             val laneCount = maxOf(topLanes.size, lanes.size)
             result.add(GraphCommit(commit, col, nodeColor, edges, laneCount))
 
-            // Trim trailing free lanes so the graph does not keep widening.
+            // Trim trailing free lanes so the graph does not keep widening. Keep
+            // laneColor untrimmed so a reopened column keeps its stable hue.
             while (lanes.isNotEmpty() && lanes.last() == null) {
                 lanes.removeAt(lanes.size - 1)
-                laneColor.removeAt(laneColor.size - 1)
             }
         }
         return result
     }
 
     /**
-     * Files touched by a single commit (vs its first parent). For a root commit
-     * (no parent) git diffs against the empty tree, so this returns every file in
-     * that commit — which is the intended "files in this commit" view.
+     * Files touched by a single commit vs its first parent (`<sha>^ <sha>`), the
+     * SAME basis openCommitDiff uses for content, so the list and the diffs can
+     * never disagree. `git diff-tree <merge>` prints nothing for a merge commit
+     * (leaving merge nodes unclickable), whereas `git diff <sha>^ <sha>` shows the
+     * first-parent delta. For a root commit `<sha>^` does not resolve, so this
+     * falls back to `git show --name-only`, listing every file in that commit.
      */
-    fun getCommitFiles(worktreePath: String, sha: String): List<String> =
-        runCommand(worktreePath, listOf("git", "diff-tree", "--no-commit-id", "--name-only", "-r", sha))
+    fun getCommitFiles(worktreePath: String, sha: String): List<String> {
+        val files = runCommand(worktreePath, listOf("git", "diff", "--name-only", "$sha^", sha))
             .split("\n").filter { it.isNotBlank() }
+        if (files.isNotEmpty() || refExists(worktreePath, "$sha^")) return files
+        // Root commit (no parent): list its whole tree.
+        return runCommand(worktreePath, listOf("git", "show", "--name-only", "--format=", sha))
+            .split("\n").filter { it.isNotBlank() }
+    }
 
     /** Files changed on this branch since its merge-base with [base]. */
     fun getFilesSinceBase(worktreePath: String, base: String): List<String> =
         runCommand(worktreePath, listOf("git", "diff", "--name-only", "$base...HEAD"))
             .split("\n").filter { it.isNotBlank() }
+
+    /**
+     * The merge-base (common ancestor) SHA of [base] and HEAD, or null if none.
+     * This is the "diverged from" point — the correct left side for a vs-base
+     * diff, so unrelated commits landed on [base]'s tip after the fork are not
+     * shown as this branch's changes.
+     */
+    fun getMergeBase(worktreePath: String, base: String): String? =
+        runCommand(worktreePath, listOf("git", "merge-base", base, "HEAD"))
+            .trim().takeIf { it.isNotBlank() }
 
     /**
      * A file's contents at an arbitrary revision (e.g. a commit's parent), or
@@ -545,5 +594,8 @@ class WorktreeService(private val project: Project) {
     companion object {
         /** Upper bound for any single git invocation before it is force-killed. */
         private const val COMMAND_TIMEOUT_SEC = 30L
+
+        /** Distinct-instance sentinel meaning "base branch not yet detected". */
+        private val BASE_UNCOMPUTED = String(" uncomputed".toCharArray())
     }
 }
