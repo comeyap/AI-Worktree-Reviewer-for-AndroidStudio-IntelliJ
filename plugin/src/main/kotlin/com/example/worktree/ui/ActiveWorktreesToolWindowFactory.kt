@@ -111,7 +111,8 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val reviewAllButton = JButton("Review all").apply { isEnabled = false }
         val reviewBaseButton = JButton("Review vs base").apply {
             isEnabled = false
-            toolTipText = "Diff every change this branch adds on top of its base branch (main/master)"
+            toolTipText = "Diff the working tree against the merge-base with the base branch " +
+                "(main/master) — every change this branch adds, including uncommitted ones"
         }
 
         // ----- Commit-graph list -----
@@ -335,12 +336,20 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             filesLoadingPanel.startLoading()
             app.executeOnPooledThread {
                 val files = service.getFilesSinceBase(worktree.path, base)
+                // Left side is the MERGE-BASE (where this branch forked), not the
+                // base tip: `base...HEAD` lists files by merge-base, so reading
+                // content at the tip would show commits others landed on base
+                // after the fork as this branch's changes. Fall back to the base
+                // name only if no merge-base resolves.
+                val mergeBase = service.getMergeBase(worktree.path, base)
+                val leftRev = mergeBase ?: base
+                val leftTitle = if (mergeBase != null) "merge-base ($base)" else base
                 val requests = files.mapNotNull { rel ->
-                    val left = service.getFileAtRevision(worktree.path, base, rel)
+                    val left = service.getFileAtRevision(worktree.path, leftRev, rel)
                     val workingVf = LocalFileSystem.getInstance()
                         .refreshAndFindFileByIoFile(File(worktree.path, rel))
                     val right = workingVf?.let { String(it.contentsToByteArray(), it.charset) }
-                    buildRevRequest(worktree, rel, left, right, base, "Working tree (${worktree.branch})")
+                    buildRevRequest(worktree, rel, left, right, leftTitle, "Working tree (${worktree.branch})")
                 }
                 app.invokeLater {
                     filesLoadingPanel.stopLoading()
@@ -379,13 +388,16 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         // When the worktree is dirty, a pseudo "Uncommitted changes" node is
         // prepended on HEAD's lane (see UNCOMMITTED_SHA); selecting it shows the
         // uncommitted files, exactly like the default worktree view.
-        fun loadCommitsFor(worktree: WorktreeInfo) {
+        // [status] is passed in by the EDT caller (never read from the shared
+        // branchStatusByPath on this pooled thread), so there is no cross-thread
+        // HashMap access to synchronize.
+        fun loadCommitsFor(worktree: WorktreeInfo, status: BranchStatus) {
             commitModel.clear()
             commitList.emptyText.text = "Loading commits…"
             commitLoadingPanel.startLoading()
             app.executeOnPooledThread {
-                val status = branchStatusByPath[worktree.path] ?: service.getBranchStatus(worktree.path)
                 val commits = service.getGraphCommits(worktree.path, base = status.base)
+                val headSha = service.getHeadSha(worktree.path)
                 app.invokeLater {
                     // Drop stale results if the user moved to another worktree.
                     if (worktreeList.selectedValue?.path != worktree.path) {
@@ -394,25 +406,27 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                     }
                     commitModel.clear()
                     // Prepend the uncommitted-changes node on HEAD's lane so it
-                    // reads as "sitting on top of" the current HEAD commit.
-                    if (status.dirty && commits.isNotEmpty()) {
-                        val head = commits.first()
+                    // reads as "sitting on top of" the current HEAD commit. Anchor
+                    // it to the row whose SHA is actually HEAD (not commits.first(),
+                    // which need not be HEAD once boundary commits are included).
+                    val headRow = commits.firstOrNull { it.commit.sha == headSha } ?: commits.firstOrNull()
+                    if (status.dirty && headRow != null) {
                         val pseudoCommit = CommitInfo(
                             sha = UNCOMMITTED_SHA,
                             shortSha = "●",
                             subject = "Uncommitted changes",
                             author = "",
                             relativeDate = "",
-                            parents = listOf(head.commit.sha)
+                            parents = listOf(headRow.commit.sha)
                         )
                         commitModel.addElement(
                             GraphCommit(
                                 commit = pseudoCommit,
-                                column = head.column,
-                                nodeColor = head.nodeColor,
+                                column = headRow.column,
+                                nodeColor = headRow.nodeColor,
                                 // Straight line down HEAD's lane into the HEAD node.
-                                edges = listOf(GraphEdge(head.column, head.column, head.nodeColor)),
-                                laneCount = head.laneCount
+                                edges = listOf(GraphEdge(headRow.column, headRow.column, headRow.nodeColor)),
+                                laneCount = headRow.laneCount
                             )
                         )
                     }
@@ -424,6 +438,10 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                     // "select a worktree → see its changes" first impression.
                     if (status.dirty && commitModel.size() > 0) {
                         commitList.selectedIndex = 0
+                    } else if (status.dirty) {
+                        // Dirty but no commits (e.g. brand-new repo): no pseudo-node
+                        // was added to drive the panel, so populate it directly.
+                        showUncommittedFiles(worktree)
                     }
                 }
             }
@@ -454,16 +472,14 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                     branchStatusLabel.text = describeStatus(branchStatus)
                     reviewBaseButton.isEnabled =
                         branchStatus.base != null && branchStatus.baseAhead > 0
-                    // Now that we know dirty/base, (re)load the graph. It caches
-                    // branchStatusByPath just set above, so no duplicate git call.
-                    loadCommitsFor(worktree)
-                    // Always populate the uncommitted files now (stops the spinner
-                    // started above and shows the default view). If the graph later
-                    // adds a dirty pseudo-node, its auto-select re-runs this — a
-                    // harmless no-op that shows the same uncommitted list. This also
-                    // covers the dirty-but-no-commits case, where no pseudo-node is
-                    // added and nothing else would populate the panel.
-                    showUncommittedFiles(worktree)
+                    // (Re)load the graph. When dirty, loadCommitsFor prepends and
+                    // auto-selects the "Uncommitted changes" node, which drives the
+                    // files panel — so we must NOT also call showUncommittedFiles
+                    // here (its startLoading/stopLoading would race the node's load;
+                    // JBLoadingPanel is not ref-counted). For a clean worktree no
+                    // node is auto-selected, so populate the panel directly.
+                    loadCommitsFor(worktree, branchStatus)
+                    if (!branchStatus.dirty) showUncommittedFiles(worktree)
                 }
             }
         }
