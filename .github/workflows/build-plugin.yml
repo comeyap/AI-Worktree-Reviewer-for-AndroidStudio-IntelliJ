@@ -36,19 +36,33 @@ jobs:
         with:
           build-root-directory: plugin
 
-      # 4. Build and verify the IntelliJ/Android Studio plugin via the Gradle wrapper
+      # 4. Run the unit and git-integration tests before packaging anything
+      - name: Test
+        run: ./gradlew test
+        working-directory: plugin
+
+      # 5. Publish the test report even when the run above fails
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: plugin/build/reports/tests/test
+          if-no-files-found: ignore
+
+      # 6. Build and verify the IntelliJ/Android Studio plugin via the Gradle wrapper
       - name: Build Plugin
         run: ./gradlew buildPlugin
         working-directory: plugin
 
-      # 5. Upload the compiled ZIP file in Github Actions Artifacts
+      # 7. Upload the compiled ZIP file in Github Actions Artifacts
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4
         with:
           name: AI-Worktree-Reviewer-Artifact
           path: plugin/build/distributions/*.zip
 
-      # 6. If this build was triggered by a GitHub Release, automatically upload the zip as a Release Asset
+      # 8. If this build was triggered by a GitHub Release, automatically upload the zip as a Release Asset
       - name: Upload Release Asset
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2

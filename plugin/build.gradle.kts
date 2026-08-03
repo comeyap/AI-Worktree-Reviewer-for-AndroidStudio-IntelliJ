@@ -19,6 +19,12 @@ dependencies {
         intellijIdeaCommunity("2024.2")
         bundledPlugin("Git4Idea")
     }
+
+    // The git layer and the graph layout are free of platform types, so they run
+    // as ordinary JVM tests — no IDE sandbox needed.
+    testImplementation(kotlin("test"))
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 intellijPlatform {
@@ -47,6 +53,20 @@ intellijPlatform {
 }
 
 tasks {
+    test {
+        useJUnitPlatform()
+        // The git-backed tests shell out to `git`; fail loudly rather than
+        // silently passing if it is missing from the build environment.
+        doFirst {
+            val hasGit = try {
+                ProcessBuilder("git", "--version").start().waitFor() == 0
+            } catch (e: Exception) {
+                false
+            }
+            require(hasGit) { "git executable not found; WorktreeGit tests cannot run" }
+        }
+    }
+
     withType<JavaCompile> {
         sourceCompatibility = "17"
         targetCompatibility = "17"
