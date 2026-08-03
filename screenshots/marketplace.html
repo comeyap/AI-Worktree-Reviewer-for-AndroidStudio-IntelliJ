@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <!-- A faithful re-creation of the AI Worktree Reviewer UI in the IntelliJ
-     New UI (Dark) theme, for the JetBrains Marketplace listing. -->
+     New UI (Dark) theme, for the JetBrains Marketplace listing.
+     Lane colors, lane width (16px), node radius (4px) and row height (22px)
+     match CommitGraphRenderer. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -25,6 +27,9 @@
     --type:#b9c0cb;
     --fn:#57aaf7;
     --num:#2aacb8;
+    /* CommitGraphRenderer palette (dark variants) */
+    --lane1:#60A5FA;
+    --lane2:#4ADE80;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{width:1280px;height:720px}
@@ -67,39 +72,58 @@
   .panes{flex:1;display:flex;min-height:0}
   .pane{flex:1;min-width:0;overflow:hidden}
   .pane.left{border-right:1px solid var(--border)}
-  pre.code{font-family:'JetBrains Mono','Menlo',monospace;font-size:12.5px;line-height:20px;color:var(--text);padding:6px 0;white-space:pre}
-  .ln{display:flex;height:20px}
-  .ln .num{width:40px;text-align:right;padding-right:12px;color:var(--gutter);user-select:none;flex:none}
-  .ln .src{padding-left:10px;flex:1}
+  pre.code{font-family:'JetBrains Mono','Menlo',monospace;font-size:12px;line-height:19px;color:var(--text);padding:6px 0;white-space:pre}
+  .ln{display:flex;height:19px}
+  .ln .num{width:36px;text-align:right;padding-right:10px;color:var(--gutter);user-select:none;flex:none}
+  .ln .src{padding-left:9px;flex:1}
   .ln.add{background:var(--added-bg);border-left:3px solid var(--added-strip);margin-left:-3px}
   .ln.del{background:var(--removed-bg);border-left:3px solid #c75d61;margin-left:-3px}
-  .ln.add .num,.ln.del .num{padding-right:9px}
+  .ln.add .num,.ln.del .num{padding-right:7px}
   .kw{color:var(--kw)}.str{color:var(--str)}.ty{color:var(--type)}.fn{color:var(--fn)}.nu{color:var(--num)}.cm{color:#7a7e85}
 
   /* ---- Active Worktrees tool window ---- */
-  .tool{width:372px;flex:none;background:var(--panel-bg);display:flex;flex-direction:column}
+  .tool{width:440px;flex:none;background:var(--panel-bg);display:flex;flex-direction:column}
   .toolhdr{height:30px;display:flex;align-items:center;gap:7px;padding:0 12px;font-size:12px;font-weight:600;
-           color:var(--text);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.3px}
+           color:var(--text);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.3px;flex:none}
   .toolhdr .lc{text-transform:none;letter-spacing:0}
-  .content{padding:10px 12px;display:flex;flex-direction:column;height:100%}
-  .title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px}
-  .toolbar{display:flex;gap:6px;margin-bottom:10px}
+  .content{padding:9px 12px;display:flex;flex-direction:column;height:100%;min-height:0}
+  .title{font-size:13px;font-weight:700;color:var(--text);margin-bottom:7px}
+  .toolbar{display:flex;gap:6px;margin-bottom:8px}
   .btn{font-size:12px;color:var(--btn-text);background:var(--btn-bg);border:1px solid var(--btn-border);
        border-radius:6px;padding:4px 11px;line-height:16px;white-space:nowrap}
   .btn.dis{color:#5c5f66;border-color:#3a3c41}
-  .sectlbl{font-size:12px;color:var(--dim);margin:4px 0 7px}
+  .sectlbl{font-size:12px;color:var(--dim);margin:3px 0 6px}
   .list{display:flex;flex-direction:column;gap:1px}
-  .row{display:flex;align-items:center;gap:8px;padding:4px 8px;border-radius:6px;font-size:12.5px;color:var(--text)}
+  .row{display:flex;align-items:center;gap:8px;padding:3px 8px;border-radius:6px;font-size:12.5px;color:var(--text)}
   .row.sel{background:var(--sel-bg)}
   .row .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .row .branch{color:var(--dim)}
   .row.sel .branch{color:#c6d4f2}
-  .badge{color:var(--dim);font-variant-numeric:tabular-nums}
+  .badge{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
   .row.sel .badge{color:#c6d4f2}
-  .divider{height:1px;background:var(--border);margin:11px -12px}
+  .sync{color:var(--dim);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .row.sel .sync{color:#c6d4f2}
+  .dirty{color:#e8a33d}
+  .divider{height:1px;background:var(--border);margin:9px -12px}
   .filerow .pth{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;direction:rtl;text-align:left}
   .grow{flex:1}
   svg{display:block}
+
+  /* ---- branch-status summary line (under the worktree list) ---- */
+  .status{font-size:10.5px;color:var(--dim);padding:4px 2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ---- commit graph ---- */
+  .commits{display:flex;flex-direction:column}
+  .crow{display:flex;align-items:center;height:22px;border-radius:6px;padding-right:6px;font-size:12px;white-space:nowrap}
+  .crow.sel{background:var(--sel-bg)}
+  .crow .lane{flex:none}
+  .crow .msg{overflow:hidden;text-overflow:ellipsis;padding-left:4px}
+  .crow .sha{font-family:'JetBrains Mono','Menlo',monospace;font-size:11.5px;color:var(--text)}
+  .crow .subj{color:var(--text)}
+  .crow .meta{color:var(--dim)}
+  /* commits the base branch already contains are dimmed (GraphCommit.isOwn = false) */
+  .crow.shared .sha,.crow.shared .subj{color:var(--dim)}
+  .crow.pseudo .subj{color:var(--dim);font-style:italic}
 </style>
 </head>
 <body>
@@ -131,11 +155,11 @@
       <div class="panes">
         <!-- LEFT: HEAD -->
         <div class="pane left">
-          <pre class="code"><div class="ln"><span class="num">12</span><span class="src"><span class="kw">package</span> com.example.auth</span></div><div class="ln"><span class="num">13</span><span class="src"> </span></div><div class="ln"><span class="num">14</span><span class="src"><span class="kw">class</span> <span class="ty">AuthRepository</span>(</span></div><div class="ln"><span class="num">15</span><span class="src">    <span class="kw">private val</span> api: <span class="ty">AuthApi</span>,</span></div><div class="ln"><span class="num">16</span><span class="src">) {</span></div><div class="ln del"><span class="num">17</span><span class="src">    <span class="cm">// FIXME: token is not persisted</span></span></div><div class="ln"><span class="num">18</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">login</span>(id: <span class="ty">String</span>, pw: <span class="ty">String</span>): <span class="ty">User</span> {</span></div><div class="ln"><span class="num">19</span><span class="src">        <span class="kw">val</span> res = api.<span class="fn">login</span>(id, pw)</span></div><div class="ln"><span class="num">20</span><span class="src">        <span class="kw">return</span> res.user</span></div><div class="ln"><span class="num">21</span><span class="src">    }</span></div><div class="ln"><span class="num">22</span><span class="src"> </span></div><div class="ln"><span class="num">23</span><span class="src">    <span class="kw">fun</span> <span class="fn">isLoggedIn</span>() = api.<span class="fn">hasSession</span>()</span></div><div class="ln"><span class="num">24</span><span class="src">}</span></div></pre>
+          <pre class="code"><div class="ln"><span class="num">12</span><span class="src"><span class="kw">package</span> com.example.auth</span></div><div class="ln"><span class="num">13</span><span class="src"> </span></div><div class="ln"><span class="num">14</span><span class="src"><span class="kw">import</span> javax.inject.Inject</span></div><div class="ln"><span class="num">15</span><span class="src"> </span></div><div class="ln"><span class="num">16</span><span class="src"><span class="kw">class</span> <span class="ty">AuthRepository</span> @<span class="ty">Inject</span> <span class="kw">constructor</span>(</span></div><div class="ln"><span class="num">17</span><span class="src">    <span class="kw">private val</span> api: <span class="ty">AuthApi</span>,</span></div><div class="ln"><span class="num">18</span><span class="src">) {</span></div><div class="ln del"><span class="num">19</span><span class="src">    <span class="cm">// FIXME: token is not persisted</span></span></div><div class="ln"><span class="num">20</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">login</span>(id: <span class="ty">String</span>, pw: <span class="ty">String</span>): <span class="ty">User</span> {</span></div><div class="ln"><span class="num">21</span><span class="src">        <span class="kw">val</span> res = api.<span class="fn">login</span>(id, pw)</span></div><div class="ln"><span class="num">22</span><span class="src">        <span class="kw">return</span> res.user</span></div><div class="ln"><span class="num">23</span><span class="src">    }</span></div><div class="ln"><span class="num">24</span><span class="src"> </span></div><div class="ln"><span class="num">25</span><span class="src">    <span class="kw">fun</span> <span class="fn">isLoggedIn</span>() = api.<span class="fn">hasSession</span>()</span></div><div class="ln"><span class="num">26</span><span class="src"> </span></div><div class="ln"><span class="num">27</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">logout</span>() {</span></div><div class="ln"><span class="num">28</span><span class="src">        api.<span class="fn">logout</span>()</span></div><div class="ln"><span class="num">29</span><span class="src">    }</span></div><div class="ln"><span class="num">30</span><span class="src"> </span></div><div class="ln"><span class="num">31</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">refresh</span>(): <span class="ty">User</span>? {</span></div><div class="ln del"><span class="num">32</span><span class="src">        <span class="kw">val</span> s = api.<span class="fn">currentSession</span>() ?: <span class="kw">return</span> <span class="kw">null</span></span></div><div class="ln del"><span class="num">33</span><span class="src">        <span class="kw">return</span> api.<span class="fn">refresh</span>(s).user</span></div><div class="ln"><span class="num">34</span><span class="src">    }</span></div><div class="ln"><span class="num">35</span><span class="src">}</span></div></pre>
         </div>
         <!-- RIGHT: Working tree -->
         <div class="pane right">
-          <pre class="code"><div class="ln"><span class="num">12</span><span class="src"><span class="kw">package</span> com.example.auth</span></div><div class="ln"><span class="num">13</span><span class="src"> </span></div><div class="ln"><span class="num">14</span><span class="src"><span class="kw">class</span> <span class="ty">AuthRepository</span>(</span></div><div class="ln"><span class="num">15</span><span class="src">    <span class="kw">private val</span> api: <span class="ty">AuthApi</span>,</span></div><div class="ln add"><span class="num">16</span><span class="src">    <span class="kw">private val</span> tokenStore: <span class="ty">TokenStore</span>,</span></div><div class="ln"><span class="num">17</span><span class="src">) {</span></div><div class="ln"><span class="num">18</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">login</span>(id: <span class="ty">String</span>, pw: <span class="ty">String</span>): <span class="ty">User</span> {</span></div><div class="ln"><span class="num">19</span><span class="src">        <span class="kw">val</span> res = api.<span class="fn">login</span>(id, pw)</span></div><div class="ln add"><span class="num">20</span><span class="src">        tokenStore.<span class="fn">save</span>(res.token)</span></div><div class="ln"><span class="num">21</span><span class="src">        <span class="kw">return</span> res.user</span></div><div class="ln"><span class="num">22</span><span class="src">    }</span></div><div class="ln"><span class="num">23</span><span class="src"> </span></div><div class="ln add"><span class="num">24</span><span class="src">    <span class="kw">fun</span> <span class="fn">isLoggedIn</span>() = tokenStore.<span class="fn">isValid</span>()</span></div><div class="ln"><span class="num">25</span><span class="src">}</span></div></pre>
+          <pre class="code"><div class="ln"><span class="num">12</span><span class="src"><span class="kw">package</span> com.example.auth</span></div><div class="ln"><span class="num">13</span><span class="src"> </span></div><div class="ln"><span class="num">14</span><span class="src"><span class="kw">import</span> javax.inject.Inject</span></div><div class="ln"><span class="num">15</span><span class="src"> </span></div><div class="ln"><span class="num">16</span><span class="src"><span class="kw">class</span> <span class="ty">AuthRepository</span> @<span class="ty">Inject</span> <span class="kw">constructor</span>(</span></div><div class="ln"><span class="num">17</span><span class="src">    <span class="kw">private val</span> api: <span class="ty">AuthApi</span>,</span></div><div class="ln add"><span class="num">18</span><span class="src">    <span class="kw">private val</span> tokenStore: <span class="ty">TokenStore</span>,</span></div><div class="ln"><span class="num">19</span><span class="src">) {</span></div><div class="ln"><span class="num">20</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">login</span>(id: <span class="ty">String</span>, pw: <span class="ty">String</span>): <span class="ty">User</span> {</span></div><div class="ln"><span class="num">21</span><span class="src">        <span class="kw">val</span> res = api.<span class="fn">login</span>(id, pw)</span></div><div class="ln add"><span class="num">22</span><span class="src">        tokenStore.<span class="fn">save</span>(res.token)</span></div><div class="ln"><span class="num">23</span><span class="src">        <span class="kw">return</span> res.user</span></div><div class="ln"><span class="num">24</span><span class="src">    }</span></div><div class="ln"><span class="num">25</span><span class="src"> </span></div><div class="ln add"><span class="num">26</span><span class="src">    <span class="kw">fun</span> <span class="fn">isLoggedIn</span>() = tokenStore.<span class="fn">isValid</span>()</span></div><div class="ln"><span class="num">27</span><span class="src"> </span></div><div class="ln"><span class="num">28</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">logout</span>() {</span></div><div class="ln"><span class="num">29</span><span class="src">        api.<span class="fn">logout</span>()</span></div><div class="ln add"><span class="num">30</span><span class="src">        tokenStore.<span class="fn">clear</span>()</span></div><div class="ln"><span class="num">31</span><span class="src">    }</span></div><div class="ln"><span class="num">32</span><span class="src"> </span></div><div class="ln"><span class="num">33</span><span class="src">    <span class="kw">suspend fun</span> <span class="fn">refresh</span>(): <span class="ty">User</span>? {</span></div><div class="ln add"><span class="num">34</span><span class="src">        <span class="kw">val</span> t = tokenStore.<span class="fn">load</span>() ?: <span class="kw">return</span> <span class="kw">null</span></span></div><div class="ln add"><span class="num">35</span><span class="src">        <span class="kw">return</span> api.<span class="fn">refresh</span>(t).user</span></div><div class="ln"><span class="num">36</span><span class="src">    }</span></div><div class="ln"><span class="num">37</span><span class="src">}</span></div></pre>
         </div>
       </div>
     </div>
@@ -163,18 +187,26 @@
             <svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" fill="#d6a86a"/></svg>
             <span class="nm">feature-auth <span class="branch">(feature/auth)</span></span>
             <span class="badge">+37 −6</span>
+            <span class="sync">↑2 ↓1 <span class="dirty">●</span></span>
           </div>
           <div class="row">
             <svg width="15" height="15" viewBox="0 0 16 16"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h3l1.5 1.5h4.5A1.5 1.5 0 0 1 14 6v5.5A1.5 1.5 0 0 1 12.5 13h-9A1.5 1.5 0 0 1 2 11.5v-7Z" fill="#b3895a"/></svg>
             <span class="nm">fix-crash <span class="branch">(fix/npe-on-logout)</span></span>
             <span class="badge">+8 −2</span>
+            <span class="sync">↑1</span>
           </div>
         </div>
 
+        <!-- branch-status summary for the selected worktree -->
+        <div class="status">vs origin/main: ↑2 ↓1 &nbsp;•&nbsp; 3 commit(s) ahead of origin/main &nbsp;•&nbsp; uncommitted changes</div>
+
         <div class="divider"></div>
 
-        <div class="sectlbl">Changed files (double-click to diff)</div>
-        <div class="toolbar"><span class="btn">Review all</span></div>
+        <div class="sectlbl">Changed files — uncommitted (double-click to diff)</div>
+        <div class="toolbar">
+          <span class="btn">Review all</span>
+          <span class="btn">Review vs base</span>
+        </div>
 
         <div class="list">
           <div class="filerow row sel">
@@ -183,15 +215,86 @@
           </div>
           <div class="filerow row">
             <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
-            <span class="pth">app/src/main/java/auth/LoginActivity.kt</span>
-          </div>
-          <div class="filerow row">
-            <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
             <span class="pth">app/src/main/java/auth/TokenStore.kt</span>
           </div>
           <div class="filerow row">
             <svg width="14" height="14" viewBox="0 0 16 16"><path d="M4 1.5h5L13 5.5V14a.5.5 0 0 1-.5.5h-9A.5.5 0 0 1 3 14V2a.5.5 0 0 1 .5-.5Z" fill="#9aa0a6"/><path d="M9 1.5 13 5.5H9.5A.5.5 0 0 1 9 5V1.5Z" fill="#cfd3d8"/></svg>
             <span class="pth">app/src/main/res/values/strings.xml</span>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="sectlbl">Commits (click to list files · double-click to diff all)</div>
+
+        <div class="commits">
+          <!-- synthetic "Uncommitted changes" node: hollow, dashed connector down
+               into HEAD, auto-selected so the files panel shows uncommitted work -->
+          <div class="crow pseudo sel">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="11" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6" stroke-dasharray="3 3"/>
+              <circle cx="8" cy="11" r="4" fill="var(--sel-bg)" stroke="var(--lane1)" stroke-width="1.6"/>
+            </svg>
+            <span class="msg"><span class="subj">Uncommitted changes</span></span>
+          </div>
+
+          <!-- HEAD -->
+          <div class="crow">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="0" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6"/>
+              <circle cx="8" cy="11" r="4" fill="var(--lane1)"/>
+            </svg>
+            <span class="msg"><span class="sha">a3f9c21</span> &nbsp;<span class="subj">Persist auth token after login</span> &nbsp; <span class="meta">— Alex Kim, 2 hours ago</span></span>
+          </div>
+
+          <div class="crow">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="0" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6"/>
+              <circle cx="8" cy="11" r="4" fill="var(--lane1)"/>
+            </svg>
+            <span class="msg"><span class="sha">7b2e884</span> &nbsp;<span class="subj">Add TokenStore</span> &nbsp; <span class="meta">— Alex Kim, 5 hours ago</span></span>
+          </div>
+
+          <!-- merge: second parent opens lane 2 -->
+          <div class="crow">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="0" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6"/>
+              <line x1="8" y1="11" x2="24" y2="11" stroke="var(--lane2)" stroke-width="1.6"/>
+              <line x1="24" y1="11" x2="24" y2="22" stroke="var(--lane2)" stroke-width="1.6"/>
+              <circle cx="8" cy="11" r="4" fill="var(--lane1)"/>
+            </svg>
+            <span class="msg"><span class="sha">e91d5c0</span> &nbsp;<span class="subj">Merge branch 'main' into feature/auth</span> &nbsp; <span class="meta">— Alex Kim, yesterday</span></span>
+          </div>
+
+          <!-- shared history: already contained in origin/main, so dimmed -->
+          <div class="crow shared">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="0" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6"/>
+              <line x1="24" y1="0" x2="24" y2="22" stroke="var(--lane2)" stroke-width="1.6"/>
+              <circle cx="8" cy="11" r="4" fill="var(--lane1)"/>
+            </svg>
+            <span class="msg"><span class="sha">1c4a7f2</span> &nbsp;<span class="subj">Update login screen copy</span> &nbsp; <span class="meta">— Sam Park, 2 days ago</span></span>
+          </div>
+
+          <div class="crow shared">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="0" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6"/>
+              <line x1="24" y1="0" x2="24" y2="22" stroke="var(--lane2)" stroke-width="1.6"/>
+              <circle cx="24" cy="11" r="4" fill="var(--lane2)"/>
+            </svg>
+            <span class="msg"><span class="sha">9d3b015</span> &nbsp;<span class="subj">Bump AGP to 8.5</span> &nbsp; <span class="meta">— Sam Park, 3 days ago</span></span>
+          </div>
+
+          <!-- both lanes converge on the shared ancestor -->
+          <div class="crow shared">
+            <svg class="lane" width="32" height="22">
+              <line x1="8" y1="0" x2="8" y2="11" stroke="var(--lane1)" stroke-width="1.6"/>
+              <line x1="24" y1="0" x2="24" y2="11" stroke="var(--lane2)" stroke-width="1.6"/>
+              <line x1="24" y1="11" x2="8" y2="11" stroke="var(--lane2)" stroke-width="1.6"/>
+              <line x1="8" y1="11" x2="8" y2="22" stroke="var(--lane1)" stroke-width="1.6"/>
+              <circle cx="8" cy="11" r="4" fill="var(--lane1)"/>
+            </svg>
+            <span class="msg"><span class="sha">4e8c2a1</span> &nbsp;<span class="subj">Extract network module</span> &nbsp; <span class="meta">— Sam Park, 4 days ago</span></span>
           </div>
         </div>
 

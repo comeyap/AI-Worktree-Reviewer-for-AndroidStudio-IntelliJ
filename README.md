@@ -8,7 +8,7 @@
 
 <p align="center">
   <img src="screenshots/marketplace.png"
-       alt="The Active Worktrees panel beside a side-by-side HEAD ↔ working-tree diff"
+       alt="The Active Worktrees panel — worktree list with branch-status badges, changed files, and a commit graph — beside a side-by-side HEAD ↔ working-tree diff"
        width="900">
 </p>
 
@@ -33,20 +33,31 @@ diff** — in a single panel, so you can review parallel work at a glance.
 | Feature | Description |
 |---------|-------------|
 | **Active Worktrees tool window** | Lists active worktrees (`git worktree list`) in the right dock |
-| **Change badges** | Shows `+insertions -deletions` per worktree (`git diff HEAD --shortstat`) |
-| **Changed-file browsing** | Selecting a worktree lists its uncommitted changes (`git diff HEAD`), refreshed on every click |
-| **Single-file diff** | Double-click a file to diff its committed (`HEAD`) version against the working tree |
+| **Change badges** | Shows `+insertions -deletions` per worktree, including untracked files |
+| **Branch-status badges** | `↑ahead ↓behind` against the tracked upstream, plus a `●` marker when the tree is dirty |
+| **Branch-status summary** | One line for the selected worktree: upstream sync, commits added on top of the base branch, clean/dirty |
+| **Commit graph** | The worktree's history drawn as a colored lane graph — branches and merges included. Commits the base branch already contains are dimmed, so the fork point is visible at a glance |
+| **Uncommitted node** | A dashed, hollow node sits on top of `HEAD` when the tree is dirty, and is selected on open so uncommitted work shows immediately |
+| **Changed-file browsing** | Lists the selected worktree's uncommitted changes, refreshed on every click |
+| **Commit mode** | Click a commit to list the files it touched — merge commits included; double-click to page through the whole commit as one diff |
+| **Single-file diff** | Double-click a file to diff it — `HEAD` ↔ working tree for uncommitted changes, or parent ↔ commit in commit mode |
 | **Review all** | Pages through every changed file in a single, reused diff tab |
+| **Review vs base** | Diffs everything the branch adds since its **merge-base** with the trunk, so commits landed on the base after the fork are not attributed to this branch |
 | **Open in IDE** | Opens the selected worktree as a project in a new window |
 | **Delete** | Removes the selected worktree after confirmation (`git worktree remove`) and closes its open diff |
-| **Refresh** | Reloads the worktree list and stats on demand |
+| **Refresh** | Reloads worktrees and stats, and re-detects the base branch |
 | **Shortcut** | `Alt+Shift+W` toggles the tool window (also added to the Git menu) |
 
-> **What's compared:** each diff is the file's committed version (`HEAD`) versus the
-> current working tree — i.e. the worktree's **uncommitted** changes only. Changes
-> already committed on the branch are not shown.
+> **What's compared:** the default view diffs each file's committed version (`HEAD`)
+> against the working tree — the worktree's **uncommitted** changes. Selecting a
+> commit switches to that commit's own delta (parent ↔ commit), and **Review vs
+> base** compares the merge-base with the trunk against the working tree.
 
-> All git calls run on a background thread, so the IDE UI never freezes.
+> The base branch is auto-detected: `origin/HEAD` → `origin/main` → `origin/master`
+> → `main` → `master`, first one that resolves.
+
+> All git calls run on a background thread with a hardened environment and a
+> timeout, so the IDE UI never freezes or blocks on a credential prompt.
 
 ## Requirements
 
@@ -67,6 +78,7 @@ diff** — in a single panel, so you can review parallel work at a glance.
 
 ```bash
 cd plugin
+./gradlew test             # unit + git-integration tests
 ./gradlew buildPlugin      # → plugin/build/distributions/aiworktreereviewer-<version>.zip
 ```
 
@@ -85,8 +97,12 @@ cd plugin
 
 1. Open a project that has Git worktrees (e.g. `git worktree add ../feature-x -b feature-x`).
 2. Open **Active Worktrees** with `Alt+Shift+W`, or from the right dock.
-3. Select a worktree to see its changed files, then **double-click a file** to diff it.
-4. Use **Review all** to page through every change, or **Open in IDE / Delete** to manage the worktree.
+3. Select a worktree. Its badges show how far it is ahead/behind, the changed-file
+   list shows uncommitted work, and the commit graph shows the branch's history.
+4. **Double-click a file** to diff it, or **Review all** to page through every change.
+5. **Click a commit** in the graph to list its files, or **double-click** it to review
+   the whole commit. **Review vs base** shows everything the branch adds over the trunk.
+6. Use **Open in IDE / Delete** to manage the worktree itself.
 
 ## License
 
