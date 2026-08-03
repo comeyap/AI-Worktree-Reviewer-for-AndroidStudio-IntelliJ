@@ -362,29 +362,10 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         fun reviewAll(worktree: WorktreeInfo, files: List<String>) =
             openDiffsFor(worktree, files, "${worktree.path}\nALL", "${worktree.name} — all changes")
 
-        // One-line human summary of a branch's sync state for the status label.
-        fun describeStatus(bs: BranchStatus): String {
-            val parts = mutableListOf<String>()
-            if (bs.upstream != null) {
-                val rel = when {
-                    bs.ahead < 0 || bs.behind < 0 -> "vs ${bs.upstream}: unknown"
-                    bs.ahead == 0 && bs.behind == 0 -> "up to date with ${bs.upstream}"
-                    else -> "vs ${bs.upstream}: ↑${bs.ahead} ↓${bs.behind}"
-                }
-                parts.add(rel)
-            } else {
-                parts.add("no upstream")
-            }
-            if (bs.base != null && bs.baseAhead >= 0) {
-                parts.add("${bs.baseAhead} commit(s) ahead of ${bs.base}")
-            }
-            parts.add(if (bs.dirty) "uncommitted changes" else "clean")
-            return parts.joinToString("   •   ")
-        }
-
         // Loads the commit graph for a worktree into the commit list (off the
-        // EDT). The graph spans HEAD + the worktree's base branch, so the current
-        // branch's divergence from its trunk is drawn (when a base is detected).
+        // EDT). The graph walks HEAD's own history; commits the base branch
+        // already contains are dimmed rather than dropped, so the fork point is
+        // visible without hiding the worktree's commits (see WorktreeGit).
         // When the worktree is dirty, a pseudo "Uncommitted changes" node is
         // prepended on HEAD's lane (see UNCOMMITTED_SHA); selecting it shows the
         // uncommitted files, exactly like the default worktree view.
@@ -469,7 +450,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
                     branchStatusByPath[worktree.path] = branchStatus
                     worktreeList.repaint()
                     if (worktreeList.selectedValue?.path != worktree.path) return@invokeLater
-                    branchStatusLabel.text = describeStatus(branchStatus)
+                    branchStatusLabel.text = describeBranchStatus(branchStatus)
                     reviewBaseButton.isEnabled =
                         branchStatus.base != null && branchStatus.baseAhead > 0
                     // (Re)load the graph. When dirty, loadCommitsFor prepends and
@@ -489,6 +470,9 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             // Spinner over the worktree list while it is (re)loaded off the EDT.
             worktreeLoadingPanel.startLoading()
             app.executeOnPooledThread {
+                // An explicit refresh re-detects the base branch, so adding a
+                // remote or changing origin/HEAD takes effect without a restart.
+                service.invalidateCaches()
                 val worktrees = service.getWorktrees()
                 val stats = worktrees.associate { it.path to service.getDiffStats(it.path) }
                 // Branch status feeds the ↑/↓/● badges in the worktree list, so
@@ -765,7 +749,10 @@ private class CommitGraphRenderer : JPanel(), ListCellRenderer<GraphCommit> {
                 label.font = label.font.deriveFont(Font.ITALIC)
             } else {
                 label.text = "${c.shortSha}  ${c.subject}   — ${c.author}, ${c.relativeDate}"
-                label.foreground = fg
+                // Commits the base branch already contains are dimmed, so the
+                // branch's own work stands out while the shared history it grew
+                // from stays visible.
+                label.foreground = if (isSelected || value.isOwn) fg else JBColor.GRAY
                 label.font = label.font.deriveFont(Font.PLAIN)
             }
             // Reserve space on the left for the lanes this row spans.
