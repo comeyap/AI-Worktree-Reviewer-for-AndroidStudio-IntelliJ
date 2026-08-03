@@ -9,13 +9,23 @@
     <p>Review changes across multiple Git worktrees without leaving your editor &mdash;
     built for the era of AI coding agents that work several branches in parallel.</p>
     <ul>
-        <li>Active Worktrees tool window that lists every worktree with +/- change badges</li>
-        <li>Browse a worktree's uncommitted changes and open side-by-side HEAD vs working-tree diffs</li>
-        <li>Review every changed file in a single diff tab</li>
+        <li><b>Active Worktrees tool window</b> &mdash; every worktree in one list, each with
+        <code>+/-</code> change badges, <code>&uarr;ahead &darr;behind</code> against its upstream,
+        and a dot when the tree is dirty</li>
+        <li><b>Commit graph</b> &mdash; a worktree's history drawn as a colored lane graph, branches
+        and merges included. Commits the base branch already contains are dimmed, so you can see
+        where the branch forked</li>
+        <li><b>Uncommitted work up front</b> &mdash; a dashed node sits on top of HEAD and is
+        selected on open, so a dirty worktree shows its changes right away</li>
+        <li><b>Diff at any level</b> &mdash; HEAD vs working tree for uncommitted changes,
+        parent vs commit for a single commit (merge commits included), or everything the branch
+        adds since its merge-base with the trunk via <b>Review vs base</b></li>
+        <li><b>Review all</b> &mdash; page through every changed file in a single diff tab</li>
         <li>Open a worktree as a project, or remove it &mdash; all from one panel</li>
-        <li>Toggle the panel with Alt+Shift+W</li>
+        <li>Toggle the panel with <b>Alt+Shift+W</b></li>
     </ul>
-    <p>All git calls run on a background thread, so the IDE UI never freezes.</p>
+    <p>All git calls run on a background thread with a hardened environment and a timeout, so the
+    IDE never freezes and never blocks on a credential prompt.</p>
     ]]></description>
 
     <!-- Depends on platform and git plugins -->
