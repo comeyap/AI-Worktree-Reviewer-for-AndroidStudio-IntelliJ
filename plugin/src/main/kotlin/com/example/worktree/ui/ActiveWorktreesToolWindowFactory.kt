@@ -2,6 +2,7 @@ package com.example.worktree.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.FileEditorOpenRequest
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -149,12 +150,12 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             val editorManager = FileEditorManager.getInstance(project)
             val cached = openDiffs[key]
             if (cached != null && cached.isValid && editorManager.isFileOpen(cached)) {
-                editorManager.openFile(cached, true) // already open → just focus it
+                editorManager.requestOpenFile(cached, FileEditorOpenRequest.withFocus(true)) // already open → just focus it
                 return
             }
             val diffFile = ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
             openDiffs[key] = diffFile
-            editorManager.openFile(diffFile, true)
+            editorManager.requestOpenFile(diffFile, FileEditorOpenRequest.withFocus(true))
         }
         fun closeWorktreeDiffs(worktreePath: String) {
             val editorManager = FileEditorManager.getInstance(project)

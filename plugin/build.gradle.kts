@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.github.comeyap"
-version = "1.1.1"
+version = "1.1.2"
 
 repositories {
     mavenCentral()
@@ -16,7 +16,10 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdeaCommunity("2024.2")
+        // Unified IDEA distribution (2025.3+): intellijIdeaCommunity() no longer
+        // resolves for 2025.3 and later. Pinned to the exact 2026.3.1 EAP build
+        // the Marketplace verification targets (263.8311.30).
+        intellijIdea("263.8311.30")
         bundledPlugin("Git4Idea")
     }
 
@@ -31,12 +34,14 @@ intellijPlatform {
     pluginConfiguration {
         id.set("com.github.comeyap.aiworktreereviewer")
         name.set("AI Worktree Reviewer")
-        version.set("1.1.1")
+        version.set("1.1.2")
 
         ideaVersion {
-            sinceBuild.set("241")
+            // Minimum is 2026.3 (263): opening diffs uses the non-blocking
+            // FileEditorManager.requestOpenFile API, which exists only since 263.
             // No upper bound: the plugin only uses stable platform + Git4Idea APIs,
-            // so it stays compatible with newer IDE builds (e.g. Android Studio AI-261+).
+            // so it stays compatible with newer IDE builds.
+            sinceBuild.set("263")
             untilBuild.set(provider { null })
         }
     }
