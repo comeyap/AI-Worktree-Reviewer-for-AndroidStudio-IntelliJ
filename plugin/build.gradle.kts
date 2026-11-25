@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
+
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.4.21"
@@ -9,6 +11,8 @@ version = "1.1.2"
 
 kotlin {
     jvmToolchain(25)
+    // Inherit JVM defaults directly so Kotlin does not emit deprecated ToolWindowFactory bridges.
+    compilerOptions.jvmDefault.set(JvmDefaultMode.NO_COMPATIBILITY)
 }
 
 repositories {

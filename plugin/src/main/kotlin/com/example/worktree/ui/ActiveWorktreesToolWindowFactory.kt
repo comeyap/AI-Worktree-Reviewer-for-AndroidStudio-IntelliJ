@@ -143,7 +143,6 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         // Track pending requests as well as open tabs so repeated clicks reuse the same diff.
         data class DiffTab(val file: VirtualFile, val opening: CompletableFuture<*>)
         val openDiffs = HashMap<String, DiffTab>()
-        val openDiffRequest = FileEditorOpenRequest.withFocus(true).withReuseOpen(true)
         fun showDiff(key: String, requests: List<SimpleDiffRequest>, title: String) {
             if (requests.isEmpty()) return
             val editorManager = FileEditorManager.getInstance(project)
@@ -154,6 +153,7 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
             } else {
                 ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
             }
+            val openDiffRequest = FileEditorOpenRequest.withFocus(true).withReuseOpen(true)
             openDiffs[key] = DiffTab(diffFile, editorManager.requestOpenFile(diffFile, openDiffRequest))
         }
         fun closeWorktreeDiffs(worktreePath: String) {
