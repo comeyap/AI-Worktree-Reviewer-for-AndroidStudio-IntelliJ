@@ -3,7 +3,7 @@ import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 plugins {
     id("java")
     id("org.jetbrains.kotlin.jvm") version "2.4.21"
-    id("org.jetbrains.intellij.platform") version "2.16.0"
+    id("org.jetbrains.intellij.platform") version "2.20.1"
 }
 
 group = "com.github.comeyap"
@@ -25,7 +25,9 @@ repositories {
 dependencies {
     intellijPlatform {
         // Build against the first stable IDEA release supporting the new file-open API.
-        intellijIdea("2026.3")
+        intellijIdea("2026.3") {
+            useInstaller = true
+        }
         bundledPlugin("Git4Idea")
     }
 

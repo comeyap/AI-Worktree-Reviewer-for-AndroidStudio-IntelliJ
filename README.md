@@ -92,7 +92,7 @@ cd plugin
 ```
 
 > The build uses the Gradle wrapper (`9.5.1`) and JDK 25, with IntelliJ Platform
-> Gradle Plugin `2.16.0`, Kotlin `2.4.21`, and IntelliJ Platform `2026.3`.
+> Gradle Plugin `2.20.1`, Kotlin `2.4.21`, and IntelliJ Platform `2026.3`.
 
 ## Usage
 
