@@ -42,6 +42,7 @@ import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
+import java.util.concurrent.CompletableFuture
 import javax.swing.*
 
 /**
@@ -139,29 +140,30 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val commitLoadingPanel = JBLoadingPanel(BorderLayout(), toolWindow.disposable)
 
         // ----- Diff helpers -----
-        // Reuse a single diff editor tab: close the previous one before opening a
-        // new one, so navigating files never stacks duplicate diff windows/tabs.
-        // Track open diff tabs per (worktree, file) key, so re-opening the same
-        // file focuses its existing tab (no duplicate), while different files open
-        // in their own tabs.
-        val openDiffs = HashMap<String, VirtualFile>()
+        // Track pending requests as well as open tabs so repeated clicks reuse the same diff.
+        data class DiffTab(val file: VirtualFile, val opening: CompletableFuture<*>)
+        val openDiffs = HashMap<String, DiffTab>()
+        val openDiffRequest = FileEditorOpenRequest.withFocus(true).withReuseOpen(true)
         fun showDiff(key: String, requests: List<SimpleDiffRequest>, title: String) {
             if (requests.isEmpty()) return
             val editorManager = FileEditorManager.getInstance(project)
             val cached = openDiffs[key]
-            if (cached != null && cached.isValid && editorManager.isFileOpen(cached)) {
-                editorManager.requestOpenFile(cached, FileEditorOpenRequest.withFocus(true)) // already open → just focus it
-                return
+            if (cached != null && !cached.opening.isDone) return
+            val diffFile = if (cached != null && cached.file.isValid && editorManager.isFileOpen(cached.file)) {
+                cached.file
+            } else {
+                ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
             }
-            val diffFile = ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
-            openDiffs[key] = diffFile
-            editorManager.requestOpenFile(diffFile, FileEditorOpenRequest.withFocus(true))
+            openDiffs[key] = DiffTab(diffFile, editorManager.requestOpenFile(diffFile, openDiffRequest))
         }
         fun closeWorktreeDiffs(worktreePath: String) {
             val editorManager = FileEditorManager.getInstance(project)
             val prefix = "$worktreePath\n"
             openDiffs.keys.filter { it.startsWith(prefix) }.toList().forEach { key ->
-                openDiffs.remove(key)?.let { if (it.isValid) editorManager.closeFile(it) }
+                openDiffs.remove(key)?.let { tab ->
+                    tab.opening.cancel(false)
+                    if (tab.file.isValid) editorManager.closeFile(tab.file)
+                }
             }
         }
 
