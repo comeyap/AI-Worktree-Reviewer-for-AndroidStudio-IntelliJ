@@ -61,9 +61,8 @@ diff** — in a single panel, so you can review parallel work at a glance.
 
 ## Requirements
 
-- **IntelliJ IDEA** or **Android Studio** on IntelliJ Platform build `263.7307.200` or newer for plugin `1.1.2`
+- **IntelliJ IDEA 2024.1**, **Android Studio Koala (2024.1.1)**, or newer for plugin `1.1.3` (IntelliJ Platform build `241` or newer)
 - The bundled **Git4Idea** plugin (enabled by default)
-- Plugin `1.1.1` is available for older IDE builds starting at `241`.
 
 ## Installation
 
@@ -91,8 +90,8 @@ cd plugin
 ./gradlew runIde
 ```
 
-> The build uses the Gradle wrapper (`9.5.1`) and JDK 25, with IntelliJ Platform
-> Gradle Plugin `2.20.1`, Kotlin `2.4.21`, and IntelliJ Platform `2026.3`.
+> The build uses the Gradle wrapper (`9.5.1`) and JDK 17, with IntelliJ Platform
+> Gradle Plugin `2.20.1`, Kotlin `2.4.21`, and IntelliJ Platform `2024.1`.
 
 ## Usage
 
