@@ -7,11 +7,10 @@ plugins {
 }
 
 group = "com.github.comeyap"
-version = "1.1.2"
+version = "1.1.3"
 
 kotlin {
-    jvmToolchain(25)
-    // Inherit JVM defaults directly so Kotlin does not emit deprecated ToolWindowFactory bridges.
+    jvmToolchain(17)
     compilerOptions.jvmDefault.set(JvmDefaultMode.NO_COMPATIBILITY)
 }
 
@@ -24,8 +23,7 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        // Build against the first stable IDEA release supporting the new file-open API.
-        intellijIdea("2026.3") {
+        intellijIdeaCommunity("2024.1") {
             useInstaller = true
         }
         bundledPlugin("Git4Idea")
@@ -33,7 +31,8 @@ dependencies {
 
     // The git layer and the graph layout are free of platform types, so they run
     // as ordinary JVM tests — no IDE sandbox needed.
-    testImplementation(kotlin("test"))
+    // Match the Kotlin runtime provided by the oldest supported IDE.
+    testImplementation(kotlin("test-junit5", "1.9.22"))
     testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
@@ -42,11 +41,10 @@ intellijPlatform {
     pluginConfiguration {
         id.set("com.github.comeyap.aiworktreereviewer")
         name.set("AI Worktree Reviewer")
-        version.set("1.1.2")
+        version.set(project.version.toString())
 
         ideaVersion {
-            // Earlier 263 EAP builds used different signatures for the editor-opening API.
-            sinceBuild.set("263.7307.200")
+            sinceBuild.set("241")
             untilBuild.set(provider { null })
         }
     }

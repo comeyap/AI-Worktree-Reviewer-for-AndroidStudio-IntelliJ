@@ -2,7 +2,7 @@ package com.example.worktree.ui
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.FileEditorOpenRequest
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -42,7 +42,6 @@ import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.io.File
-import java.util.concurrent.CompletableFuture
 import javax.swing.*
 
 /**
@@ -140,30 +139,26 @@ class ActiveWorktreesToolWindowFactory : ToolWindowFactory {
         val commitLoadingPanel = JBLoadingPanel(BorderLayout(), toolWindow.disposable)
 
         // ----- Diff helpers -----
-        // Track pending requests as well as open tabs so repeated clicks reuse the same diff.
-        data class DiffTab(val file: VirtualFile, val opening: CompletableFuture<*>)
-        val openDiffs = HashMap<String, DiffTab>()
+        val openDiffs = HashMap<String, VirtualFile>()
         fun showDiff(key: String, requests: List<SimpleDiffRequest>, title: String) {
             if (requests.isEmpty()) return
             val editorManager = FileEditorManager.getInstance(project)
             val cached = openDiffs[key]
-            if (cached != null && !cached.opening.isDone) return
-            val diffFile = if (cached != null && cached.file.isValid && editorManager.isFileOpen(cached.file)) {
-                cached.file
+            val diffFile = if (cached != null && cached.isValid && editorManager.isFileOpen(cached)) {
+                cached
             } else {
                 ChainDiffVirtualFile(SimpleDiffRequestChain(requests), title)
             }
-            val openDiffRequest = FileEditorOpenRequest.withFocus(true).withReuseOpen(true)
-            openDiffs[key] = DiffTab(diffFile, editorManager.requestOpenFile(diffFile, openDiffRequest))
+            // Navigate directly to an editor to keep the diff in a tab on both old and new IDEs.
+            if (OpenFileDescriptor(project, diffFile).navigateInEditor(project, true)) {
+                openDiffs[key] = diffFile
+            }
         }
         fun closeWorktreeDiffs(worktreePath: String) {
             val editorManager = FileEditorManager.getInstance(project)
             val prefix = "$worktreePath\n"
             openDiffs.keys.filter { it.startsWith(prefix) }.toList().forEach { key ->
-                openDiffs.remove(key)?.let { tab ->
-                    tab.opening.cancel(false)
-                    if (tab.file.isValid) editorManager.closeFile(tab.file)
-                }
+                openDiffs.remove(key)?.let { if (it.isValid) editorManager.closeFile(it) }
             }
         }
 
